@@ -3,12 +3,45 @@ Author: Wilhelm Ågren, wagren@kth.se
 Last edited: 25/05-2021
 """
 import pygame as pg
-import sys
 import os
 import argparse
 import time
 from state import State
-import chess
+
+
+class Square(pg.sprite.Sprite):
+    def __init__(self, piece_symbol, coordinates):
+        super().__init__()
+        self.image = pg.image.load(self.get_image(piece_symbol))
+        self.rect = self.image.get_rect()
+        self.rect.center = (coordinates[0]*100 + 50, coordinates[1]*100 + 50)
+
+    @staticmethod
+    def get_image(symbol):
+        if symbol == 'R':
+            return os.path.join('../', 'images/wr.png')
+        if symbol == 'r':
+            return os.path.join('../', 'images/br.png')
+        if symbol == 'N':
+            return os.path.join('../', 'images/wn.png')
+        if symbol == 'n':
+            return os.path.join('../', 'images/bn.png')
+        if symbol == 'B':
+            return os.path.join('../', 'images/wb.png')
+        if symbol == 'b':
+            return os.path.join('../', 'images/bb.png')
+        if symbol == 'Q':
+            return os.path.join('../', 'images/wq.png')
+        if symbol == 'q':
+            return os.path.join('../', 'images/bq.png')
+        if symbol == 'K':
+            return os.path.join('../', 'images/wk.png')
+        if symbol == 'k':
+            return os.path.join('../', 'images/bk.png')
+        if symbol == 'P':
+            return os.path.join('../', 'images/wp.png')
+        if symbol == 'p':
+            return os.path.join('../', 'images/bp.png')
 
 
 class Game(object):
@@ -26,14 +59,19 @@ class Game(object):
         return clock, pg_screen, sprite_group
 
     def spunk_screen(self):
-        self.screen.blit(pg.image.load(os.path.join('../', 'images/board.png')))
+        self.screen.blit(pg.image.load(os.path.join('../', 'images/chessboard.png')), (0, 0))
+
+    def update_spunk(self):
+        self.sprite_group.empty()
+        for piece in self.state.piecemap:
+            for coordinate in self.state.piecemap[piece]:
+                self.sprite_group.add(Square(piece_symbol=piece, coordinates=coordinate))
 
     def spunk_all(self):
         self.spunk_screen()
         self.update_spunk()
-
-    def update_spunk(self):
-        pass
+        self.sprite_group.draw(self.screen)
+        pg.display.update()
 
     def make_move(self, player):
         # just make a move
@@ -44,16 +82,18 @@ class Game(object):
             print(self.state.board)
 
     def play(self):
+        self.clock.tick(60)
         while not self.state.board.is_game_over():
-            time.sleep(1)
+            self.spunk_all()
+            time.sleep(100)
+            for event in pg.event.get():
+                if event.type == pg.MOUSEBUTTONUP:
+                    print(f'{time.asctime()}  ::  got event mousebuttonup')
             # player 1 move
             self.make_move(player='W')
-            self.update_spunk()
-            pg.display.update()
+            self.spunk_all()
             # player 2 move
             self.make_move(player='B')
-            self.update_spunk()
-            pg.display.update()
         print(f'{time.asctime()} ::  GAME OVER, result is {self.state.board.result()}')
 
 
