@@ -18,7 +18,7 @@ class Square(pg.sprite.Sprite):
         super().__init__()
         self.image = pg.image.load(self.get_image(piece_symbol))
         self.rect = self.image.get_rect()
-        self.rect.center = (coordinates[0]*100 + 50, coordinates[1]*100 + 50)
+        self.rect.center = (coordinates[0] * 100 + 50, coordinates[1] * 100 + 50)
 
     @staticmethod
     def get_image(symbol):
@@ -102,26 +102,29 @@ class Game(object):
     def get_from_idx(coordinates):
         x, y = coordinates
         if 0 <= x <= 800 and 0 <= y <= 800:
-            return int(math.floor(x/100)), int(math.floor(y/100))
+            return int(math.floor(x / 100)), int(math.floor(y / 100))
 
     def get_to_idx(self, c):
         mx, my = c
         for square in self.sprite_group:
             [sx, sy] = square.rect.center
             if self.mouse_on_square(mx, my, sx, sy):
-                self.screen.blit(pg.image.load(os.path.join('../', 'images/highlight.png')), [sx-50, sy-50])
+                self.screen.blit(pg.image.load(os.path.join('../', 'images/highlight.png')), [sx - 50, sy - 50])
                 pg.display.update()
                 pg.event.set_blocked(None)
                 pg.event.set_allowed(pg.MOUSEBUTTONUP)
                 event = pg.event.wait()
                 pg.event.set_allowed(None)
                 return self.get_from_idx(pg.mouse.get_pos())
-
-        return mx, my
+        return False, False
 
     def make_move(self, coordinates):
         # just make a move
         xto, yto = self.get_to_idx(coordinates)
+
+        if xto is False and yto is False:
+            return False
+
         mx, my = self.get_from_idx(coordinates)
         if (mx, my) == (xto, yto):
             print(f'{time.asctime()}  ::  WARNING! Incorrect move, can not move to starting position...')
@@ -194,9 +197,11 @@ class Game(object):
 if __name__ == '__main__':
     os.environ['SDL_VIDEO_CENTERED'] = '1'
     parser = argparse.ArgumentParser(description='CLI chess options')
-    parser.add_argument('-c', '--computer', action='store_true', default=False, help='let computer play against herself')
+    parser.add_argument('-c', '--computer', action='store_true', default=False,
+                        help='let computer play against herself')
     parser.add_argument('-s', '--singleplayer', action='store_true', default=False, help='specify to play against AI')
-    parser.add_argument('-m', '--multiplayer', action='store_true', default=False, help='specify to play against a friend')
+    parser.add_argument('-m', '--multiplayer', action='store_true', default=False,
+                        help='specify to play against a friend')
     parser.add_argument('-W', '--width', action='store_true', default=800, help='width of gfx window')
     parser.add_argument('-H', '--height', action='store_true', default=800, help='height of gfx window')
     parser.add_argument('-v', '--verbose', action='store_true', default=False, help='specify verbose printing')
@@ -206,7 +211,8 @@ if __name__ == '__main__':
         print(f'{time.asctime()}  ::  ERROR! no game-mode specified, either \'-1\' or \'-2\' required...')
         exit()
 
-    gobject = Game(WIDTH=args.width, HEIGHT=args.height, singleplayer=args.singleplayer, multiplayer=args.multiplayer, verbose=args.verbose)
+    gobject = Game(WIDTH=args.width, HEIGHT=args.height, singleplayer=args.singleplayer, multiplayer=args.multiplayer,
+                   verbose=args.verbose)
     if args.computer:
         gobject.play_cvc()
     else:
