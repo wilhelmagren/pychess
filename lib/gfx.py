@@ -204,11 +204,14 @@ class Game(object):
 
     def make_computer_move(self, player):
         # just make a move
-        move = random.choice(self.state.branches())
-        self.state.board.push(move)
-        if self.verbose:
-            print(f'\n{time.asctime()}  ::  player {player} made move {move}, ')
-            print(self.state.board)
+        try:
+            move = random.choice(self.state.branches())
+            self.state.board.push(move)
+            if self.verbose:
+                print(f'\n{time.asctime()}  ::  player {player} made move {move}, ')
+                print(self.state.board)
+        except:
+            return
 
     def play_hvh(self):
         self.clock.tick(60)
@@ -228,17 +231,25 @@ class Game(object):
 
     def play_hvc(self):
         self.clock.tick(60)
+        player_move = False
         while not self.state.board.is_game_over():
             self.spunk_all()
-            time.sleep(1)
             for event in pg.event.get():
+                if event.type == pg.MOUSEBUTTONUP:
+                    valid_move = self.make_move(coordinates=pg.mouse.get_pos())
+                    if valid_move:
+                        self.play_sounds()
+                        print(f'{time.asctime()}  ::  valid move, {self.moves[-1]}')
+                        self.update_turn()
+                        player_move = True
                 if event.type == pg.QUIT:
                     print(f'{time.asctime()}  ::  PLAYER INTERRUPT, terminating process...')
                     exit(1)
-            self.make_computer_move(player='W')
-            self.spunk_all()
-            time.sleep(1)
-            self.make_computer_move(player='B')
+            if player_move:
+                self.spunk_all()
+                self.make_computer_move(player='B')
+                self.update_turn()
+                player_move = False
         self.game_over(self.state.board)
 
     def play_cvc(self):
