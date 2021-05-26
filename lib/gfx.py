@@ -1,6 +1,6 @@
 """
 Author: Wilhelm Ågren, wagren@kth.se
-Last edited: 25/05-2021
+Last edited: 26/05-2021
 """
 import pygame as pg
 import os
@@ -14,6 +14,11 @@ from state import State
 
 
 class Square(pg.sprite.Sprite):
+    """
+    Square class, inheriting from pygame Sprite object.
+    Used to blit all pieces from the state to the screen.
+    One Square object is initialized for each active piece.
+    """
     def __init__(self, piece_symbol, coordinates):
         super().__init__()
         self.image = pg.image.load(self.get_image(piece_symbol))
@@ -49,6 +54,11 @@ class Square(pg.sprite.Sprite):
 
 
 class Information(pg.sprite.Sprite):
+    """
+    Information class, inheriting from pygame Sprite object.
+    Used to render various text information about the current state of the board.
+    One Information object is initialized in the Game object, to hold necessary information.
+    """
     def __init__(self):
         super().__init__()
         self.image = pg.image.load(os.path.join('../', 'images/info.png'))
@@ -68,7 +78,10 @@ class Information(pg.sprite.Sprite):
 
 class Game(object):
     """
-    800x800 chess board + 400x800 information
+    Game class, inheriting object properties. Contains everything necessary to instantiate, render/blit, and
+    a game of chess. Utilizes 'pygame' library for GUI and 'python-chess' for generating valid moves.
+    Makes use of the State class in 'state.py' which is a wrapper of a python-chess board. Necessary wrapper
+    to perform serialization, bitmap representation for Neural Network, and move generation.
     """
     def __init__(self, WIDTH=800, HEIGHT=800, singleplayer=False, multiplayer=False, verbose=False):
         self.WIDTH, self.HEIGHT, self.sp, self.mp, self.verbose = WIDTH, HEIGHT, singleplayer, multiplayer, verbose
@@ -93,11 +106,11 @@ class Game(object):
             'g': 6,
             'h': 7
         }
-        self.clock, self.screen, self.sprite_group, self.info, self.font = self.init_gameobjects()
+        self.clock, self.screen, self.sprite_group, self.info, self.font = self.__init_gameobjects__()
         self.active_square, self.to_move = None, True
         self.engine = Ada()
 
-    def init_gameobjects(self):
+    def __init_gameobjects__(self):
         clock = pg.time.Clock()
         pg_screen = pg.display.set_mode(size=(self.WIDTH, self.HEIGHT))
         pg.display.set_caption('Pepega chess')
@@ -136,16 +149,6 @@ class Game(object):
 
     def parse_move(self, xf, yf, xto, yto):
         return chess.Move.from_uci(self.idx_to_char[xf] + str(8 - yf) + self.idx_to_char[xto] + str(8 - yto))
-
-    @staticmethod
-    def mouse_on_square(mx, my, sx, sy):
-        return sx - 50 <= mx <= sx + 50 and sy - 50 <= my <= sy + 50
-
-    @staticmethod
-    def get_from_idx(coordinates):
-        x, y = coordinates
-        if 0 <= x <= 800 and 0 <= y <= 800:
-            return int(math.floor(x / 100)), int(math.floor(y / 100))
 
     def play_sounds(self):
         if self.state.board.is_check():
@@ -266,6 +269,16 @@ class Game(object):
             time.sleep(1)
             self.make_computer_move(player='B')
         self.game_over(self.state.board)
+
+    @staticmethod
+    def mouse_on_square(mx, my, sx, sy):
+        return sx - 50 <= mx <= sx + 50 and sy - 50 <= my <= sy + 50
+
+    @staticmethod
+    def get_from_idx(coordinates):
+        x, y = coordinates
+        if 0 <= x <= 800 and 0 <= y <= 800:
+            return int(math.floor(x / 100)), int(math.floor(y / 100))
 
     @staticmethod
     def game_over(board):
