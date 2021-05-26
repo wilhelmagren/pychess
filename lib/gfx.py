@@ -48,41 +48,32 @@ class Square(pg.sprite.Sprite):
             return os.path.join('../', 'images/bp.png')
 
 
+class Information(pg.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.image = pg.image.load(os.path.join('../', 'images/info.png'))
+        self.rect = self.image.get_rect()
+        self.rect.center = (1000, 400)
+        self.m2s = {True: 'White to move', False: 'Black to move'}
+        self.to_move = True
+        self.to_move_text = self.m2s[True]
+        self.to_move_pos = (900, 50)
+        self.white_time = 10
+        self.black_time = 10
+
+    def __update__(self, to_move):
+        self.to_move = to_move
+        self.to_move_text = self.m2s[to_move]
+
+
 class Game(object):
+    """
+    800x800 chess board + 400x800 information
+    """
     def __init__(self, WIDTH=800, HEIGHT=800, singleplayer=False, multiplayer=False, verbose=False):
         self.WIDTH, self.HEIGHT, self.sp, self.mp, self.verbose = WIDTH, HEIGHT, singleplayer, multiplayer, verbose
-        self.state = State()
-        self.clock, self.screen, self.sprite_group = self.init_gameobjects()
-        self.active_square, self.to_move = None, True
-        self.engine = Ada()
-
-    def init_gameobjects(self):
-        clock = pg.time.Clock()
-        pg_screen = pg.display.set_mode(size=(self.WIDTH, self.HEIGHT))
-        pg.display.set_caption('Pepega chess')
-        pg.display.set_icon(pg.image.load(os.path.join('../', 'images/icon.png')))
-        sprite_group = pg.sprite.Group()
-        return clock, pg_screen, sprite_group
-
-    def spunk_screen(self):
-        self.screen.blit(pg.image.load(os.path.join('../', 'images/chessboard.png')), (0, 0))
-
-    def update_spunk(self):
-        self.sprite_group.empty()
-        for piece in self.state.piecemap:
-            for coordinate in self.state.piecemap[piece]:
-                self.sprite_group.add(Square(piece_symbol=piece, coordinates=coordinate))
-
-    def spunk_all(self):
-        self.state.update_map()
-        self.spunk_screen()
-        self.update_spunk()
-        self.sprite_group.draw(self.screen)
-        pg.display.update()
-
-    @staticmethod
-    def parse_move(xf, yf, xto, yto):
-        idx_to_char = {
+        self.state, self.moves,  = State(), [],
+        self.idx_to_char = {
             0: 'a',
             1: 'b',
             2: 'c',
@@ -92,7 +83,59 @@ class Game(object):
             6: 'g',
             7: 'h'
         }
-        return chess.Move.from_uci(idx_to_char[xf] + str(8 - yf) + idx_to_char[xto] + str(8 - yto))
+        self.char_to_idx = {
+            'a': 0,
+            'b': 1,
+            'c': 2,
+            'd': 3,
+            'e': 4,
+            'f': 5,
+            'g': 6,
+            'h': 7
+        }
+        self.clock, self.screen, self.sprite_group, self.info, self.font = self.init_gameobjects()
+        self.active_square, self.to_move = None, True
+        self.engine = Ada()
+
+    def init_gameobjects(self):
+        clock = pg.time.Clock()
+        pg_screen = pg.display.set_mode(size=(self.WIDTH, self.HEIGHT))
+        pg.display.set_caption('Pepega chess')
+        pg.display.set_icon(pg.image.load(os.path.join('../', 'images/icon.png')))
+        sprite_group = pg.sprite.Group()
+        info = Information()
+        pg.font.init()
+        font = pg.font.SysFont('Calibri', 35)
+        pg.mixer.init()
+        return clock, pg_screen, sprite_group, info, font
+
+    def spunk_screen(self):
+        self.screen.blit(pg.image.load(os.path.join('../', 'images/chessboard.png')), (0, 0))
+
+    def update_spunk(self):
+        self.sprite_group.empty()
+        for piece in self.state.piecemap:
+            for coordinate in self.state.piecemap[piece]:
+                self.sprite_group.add(Square(piece_symbol=piece, coordinates=coordinate))
+        self.sprite_group.add(self.info)
+
+    def draw_info(self):
+        self.screen.blit(self.font.render(self.info.to_move_text, True, (0, 0, 0)), self.info.to_move_pos)
+
+    def spunk_all(self):
+        self.state.update_map()
+        self.spunk_screen()
+        self.update_spunk()
+        self.sprite_group.draw(self.screen)
+        self.draw_info()
+        pg.display.update()
+
+    def update_turn(self):
+        self.to_move = not self.to_move
+        self.info.__update__(self.to_move)
+
+    def parse_move(self, xf, yf, xto, yto):
+        return chess.Move.from_uci(self.idx_to_char[xf] + str(8 - yf) + self.idx_to_char[xto] + str(8 - yto))
 
     @staticmethod
     def mouse_on_square(mx, my, sx, sy):
@@ -104,15 +147,36 @@ class Game(object):
         if 0 <= x <= 800 and 0 <= y <= 800:
             return int(math.floor(x / 100)), int(math.floor(y / 100))
 
+    def play_sounds(self):
+        if self.state.board.is_check():
+            pg.mixer.music.load(os.path.join('../', 'sounds/hitmarker.mp3'))
+        else:
+            pg.mixer.music.load(os.path.join('../', 'sounds/move.wav'))
+        pg.mixer.music.play(0)
+
+    def highlight_moves(self, c):
+        fromx, fromy = c
+        possible_moves = self.state.branches()
+        to_squares = []
+        for move in possible_moves:
+            s = list(str(move))
+            if self.idx_to_char[fromx] == s[0] and (8 - fromy) == int(s[1]):
+                to_squares.append((self.char_to_idx[s[2]], int(s[3])))
+        for square in to_squares:
+            self.screen.blit(pg.image.load(os.path.join('../', 'images/highlight_move.png')), [100*square[0], 100*(8 - square[1])])
+
     def get_to_idx(self, c):
         mx, my = c
         for square in self.sprite_group:
             [sx, sy] = square.rect.center
             if self.mouse_on_square(mx, my, sx, sy):
                 self.screen.blit(pg.image.load(os.path.join('../', 'images/highlight.png')), [sx - 50, sy - 50])
+                # Highlight possible moves
+                self.highlight_moves(self.get_from_idx(c))
                 pg.display.update()
                 pg.event.set_blocked(None)
                 pg.event.set_allowed(pg.MOUSEBUTTONUP)
+                pg.event.set_allowed(pg.QUIT)
                 event = pg.event.wait()
                 pg.event.set_allowed(None)
                 return self.get_from_idx(pg.mouse.get_pos())
@@ -134,7 +198,9 @@ class Game(object):
         if move in self.state.branches():
             self.state.board.push(move)
             self.state.update_map()
-        return True
+            self.moves.append(self.state.board.peek())
+            return True
+        return False
 
     def make_computer_move(self, player):
         # just make a move
@@ -152,7 +218,9 @@ class Game(object):
                 if event.type == pg.MOUSEBUTTONUP:
                     valid_move = self.make_move(coordinates=pg.mouse.get_pos())
                     if valid_move:
-                        self.to_move = not self.to_move
+                        self.play_sounds()
+                        print(f'{time.asctime()}  ::  valid move, {self.moves[-1]}')
+                        self.update_turn()
                 if event.type == pg.QUIT:
                     print(f'{time.asctime()}  ::  PLAYER INTERRUPT, terminating process...')
                     exit(1)
@@ -202,7 +270,7 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--singleplayer', action='store_true', default=False, help='specify to play against AI')
     parser.add_argument('-m', '--multiplayer', action='store_true', default=False,
                         help='specify to play against a friend')
-    parser.add_argument('-W', '--width', action='store_true', default=800, help='width of gfx window')
+    parser.add_argument('-W', '--width', action='store_true', default=1200, help='width of gfx window')
     parser.add_argument('-H', '--height', action='store_true', default=800, help='height of gfx window')
     parser.add_argument('-v', '--verbose', action='store_true', default=False, help='specify verbose printing')
     args = parser.parse_args()
