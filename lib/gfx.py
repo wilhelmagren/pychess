@@ -217,6 +217,10 @@ class Game(object):
             return
 
     def play_hvh(self):
+        """
+        Human vs Human mode. Set by the -m --multiplayer command line argument.
+        White starts per usual and each player takes turn making a move.
+        """
         self.clock.tick(60)
         while not self.state.board.is_game_over():
             self.spunk_all()
@@ -233,6 +237,10 @@ class Game(object):
         self.game_over(self.state.board)
 
     def play_hvc(self):
+        """
+        Human vs Computer mode. Set by the -s --singleplayer command line argument.
+        White starts per usual and then computer makes a move.
+        """
         self.clock.tick(60)
         player_move = False
         while not self.state.board.is_game_over():
@@ -256,6 +264,10 @@ class Game(object):
         self.game_over(self.state.board)
 
     def play_cvc(self):
+        """
+        Computer vs Computer mode. Set by the -c --computer command line argument.
+        Goes by extremely fast, so make sure to pay attention!
+        """
         self.clock.tick(60)
         while not self.state.board.is_game_over():
             self.spunk_all()
