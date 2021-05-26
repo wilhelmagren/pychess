@@ -26,7 +26,7 @@ class Square(pg.sprite.Sprite):
         self.rect.center = (coordinates[0] * 100 + 50, coordinates[1] * 100 + 50)
 
     @staticmethod
-    def get_image(symbol):
+    def get_image(symbol) -> str:
         if symbol == 'R':
             return os.path.join('../', 'images/wr.png')
         if symbol == 'r':
@@ -71,7 +71,7 @@ class Information(pg.sprite.Sprite):
         self.white_time = 10
         self.black_time = 10
 
-    def __update__(self, to_move):
+    def __update__(self, to_move) -> None:
         self.to_move = to_move
         self.to_move_text = self.m2s[to_move]
 
@@ -110,7 +110,7 @@ class Game(object):
         self.active_square, self.to_move = None, True
         self.engine = Ada()
 
-    def __init_gameobjects__(self):
+    def __init_gameobjects__(self) -> (pg.time.Clock, pg.display, pg.sprite.Group, Information, pg.font):
         clock = pg.time.Clock()
         pg_screen = pg.display.set_mode(size=(self.WIDTH, self.HEIGHT))
         pg.display.set_caption('Pepega chess')
@@ -122,20 +122,20 @@ class Game(object):
         pg.mixer.init()
         return clock, pg_screen, sprite_group, info, font
 
-    def spunk_screen(self):
+    def spunk_screen(self) -> None:
         self.screen.blit(pg.image.load(os.path.join('../', 'images/chessboard.png')), (0, 0))
 
-    def update_spunk(self):
+    def update_spunk(self) -> None:
         self.sprite_group.empty()
         for piece in self.state.piecemap:
             for coordinate in self.state.piecemap[piece]:
                 self.sprite_group.add(Square(piece_symbol=piece, coordinates=coordinate))
         self.sprite_group.add(self.info)
 
-    def draw_info(self):
+    def draw_info(self) -> None:
         self.screen.blit(self.font.render(self.info.to_move_text, True, (0, 0, 0)), self.info.to_move_pos)
 
-    def spunk_all(self):
+    def spunk_all(self) -> None:
         self.state.update_map()
         self.spunk_screen()
         self.update_spunk()
@@ -143,21 +143,21 @@ class Game(object):
         self.draw_info()
         pg.display.update()
 
-    def update_turn(self):
+    def update_turn(self) -> None:
         self.to_move = not self.to_move
         self.info.__update__(self.to_move)
 
-    def parse_move(self, xf, yf, xto, yto):
+    def parse_move(self, xf, yf, xto, yto) -> chess.Move:
         return chess.Move.from_uci(self.idx_to_char[xf] + str(8 - yf) + self.idx_to_char[xto] + str(8 - yto))
 
-    def play_sounds(self):
+    def play_sounds(self) -> None:
         if self.state.board.is_check():
             pg.mixer.music.load(os.path.join('../', 'sounds/hitmarker.mp3'))
         else:
             pg.mixer.music.load(os.path.join('../', 'sounds/move.wav'))
         pg.mixer.music.play(0)
 
-    def highlight_moves(self, c):
+    def highlight_moves(self, c) -> None:
         fromx, fromy = c
         possible_moves = self.state.branches()
         to_squares = []
@@ -168,7 +168,7 @@ class Game(object):
         for square in to_squares:
             self.screen.blit(pg.image.load(os.path.join('../', 'images/highlight_move.png')), [100*square[0], 100*(8 - square[1])])
 
-    def get_to_idx(self, c):
+    def get_to_idx(self, c) -> (bool, bool):
         mx, my = c
         for square in self.sprite_group:
             [sx, sy] = square.rect.center
@@ -185,7 +185,7 @@ class Game(object):
                 return self.get_from_idx(pg.mouse.get_pos())
         return False, False
 
-    def make_move(self, coordinates):
+    def make_move(self, coordinates) -> bool:
         # just make a move
         xto, yto = self.get_to_idx(coordinates)
 
@@ -205,7 +205,7 @@ class Game(object):
             return True
         return False
 
-    def make_computer_move(self, player):
+    def make_computer_move(self, player) -> None:
         # just make a move
         try:
             move = random.choice(self.state.branches())
@@ -216,7 +216,7 @@ class Game(object):
         except:
             return
 
-    def play_hvh(self):
+    def play_hvh(self) -> None:
         """
         Human vs Human mode. Set by the -m --multiplayer command line argument.
         White starts per usual and each player takes turn making a move.
@@ -236,7 +236,7 @@ class Game(object):
                     exit(1)
         self.game_over(self.state.board)
 
-    def play_hvc(self):
+    def play_hvc(self) -> None:
         """
         Human vs Computer mode. Set by the -s --singleplayer command line argument.
         White starts per usual and then computer makes a move.
@@ -263,7 +263,7 @@ class Game(object):
                 player_move = False
         self.game_over(self.state.board)
 
-    def play_cvc(self):
+    def play_cvc(self) -> None:
         """
         Computer vs Computer mode. Set by the -c --computer command line argument.
         Goes by extremely fast, so make sure to pay attention!
@@ -283,17 +283,17 @@ class Game(object):
         self.game_over(self.state.board)
 
     @staticmethod
-    def mouse_on_square(mx, my, sx, sy):
+    def mouse_on_square(mx, my, sx, sy) -> bool:
         return sx - 50 <= mx <= sx + 50 and sy - 50 <= my <= sy + 50
 
     @staticmethod
-    def get_from_idx(coordinates):
+    def get_from_idx(coordinates) -> (int, int):
         x, y = coordinates
         if 0 <= x <= 800 and 0 <= y <= 800:
             return int(math.floor(x / 100)), int(math.floor(y / 100))
 
     @staticmethod
-    def game_over(board):
+    def game_over(board) -> None:
         print(f'{time.asctime()}  ::  GAME OVER, result is {board.result()}')
         exit(1)
 
