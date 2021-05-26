@@ -6,7 +6,6 @@ import pygame as pg
 import os
 import argparse
 import time
-import random
 import math
 import chess
 from ada import Ada
@@ -206,15 +205,14 @@ class Game(object):
         return False
 
     def make_computer_move(self, player) -> None:
-        # just make a move
-        try:
-            move = random.choice(self.state.branches())
-            self.state.board.push(move)
-            if self.verbose:
-                print(f'\n{time.asctime()}  ::  player {player} made move {move}, ')
-                print(self.state.board)
-        except:
-            return
+        if player:
+            self.engine.set_player(player, float('inf'))
+        else:
+            self.engine.set_player(player, float('-inf'))
+        move = self.engine.find_move(state=self.state, max_depth=3)
+        print(move)
+        self.state.board.push(move)
+        print(f'{time.asctime()}  ::  Computer made move {move}')
 
     def play_hvh(self) -> None:
         """
@@ -256,9 +254,9 @@ class Game(object):
                 if event.type == pg.QUIT:
                     print(f'{time.asctime()}  ::  PLAYER INTERRUPT, terminating process...')
                     exit(1)
-            if player_move:
+            if player_move and not self.state.board.is_game_over():
                 self.spunk_all()
-                self.make_computer_move(player='B')
+                self.make_computer_move(player=False)
                 self.update_turn()
                 player_move = False
         self.game_over(self.state.board)
@@ -276,10 +274,10 @@ class Game(object):
                 if event.type == pg.QUIT:
                     print(f'{time.asctime()}  ::  PLAYER INTERRUPT, terminating process...')
                     exit(1)
-            self.make_computer_move(player='W')
+            self.make_computer_move(player=True)
             self.spunk_all()
             time.sleep(1)
-            self.make_computer_move(player='B')
+            self.make_computer_move(player=False)
         self.game_over(self.state.board)
 
     @staticmethod
