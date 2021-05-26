@@ -129,6 +129,7 @@ class Game(object):
         if (mx, my) == (xto, yto):
             print(f'{time.asctime()}  ::  WARNING! Incorrect move, can not move to starting position...')
             return False
+
         move = self.parse_move(mx, my, xto, yto)
         if move in self.state.branches():
             self.state.board.push(move)
@@ -147,7 +148,6 @@ class Game(object):
         self.clock.tick(60)
         while not self.state.board.is_game_over():
             self.spunk_all()
-            time.sleep(1)
             for event in pg.event.get():
                 if event.type == pg.MOUSEBUTTONUP:
                     valid_move = self.make_move(coordinates=pg.mouse.get_pos())
@@ -208,7 +208,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if not args.singleplayer and not args.multiplayer and not args.computer:
-        print(f'{time.asctime()}  ::  ERROR! no game-mode specified, either \'-1\' or \'-2\' required...')
+        print(f'{time.asctime()}  ::  ERROR! no game-mode specified, either \'-s\', \'c\', or \'-m\' required...')
         exit()
 
     gobject = Game(WIDTH=args.width, HEIGHT=args.height, singleplayer=args.singleplayer, multiplayer=args.multiplayer,
