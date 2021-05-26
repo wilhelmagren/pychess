@@ -3,14 +3,17 @@ Author: Wilhelm Ågren, wagren@kth.se
 Last edited: 24/05-2021
 """
 import chess
+import math
 import numpy as np
 
 
 class State(object):
     def __init__(self, board=None):
         self.board = chess.Board() if board is None else board
+        self.piecemap = {}
+        self.bitmap = self.serialize()
 
-    def serialize(self):
+    def serialize(self) -> np.array:
         """
         8x8x12 bitmap representation of board. Extremely sparse. CNN favours sparse data...
         """
@@ -25,7 +28,19 @@ class State(object):
                                  "p": 6, "n": 7, "b": 8, "r": 9, "q": 10, "k": 11}[piece.symbol()]
                 bitmap[idx, onehot_offset] = 1
 
+        self.update_map()
+
         return bitmap
+
+    def update_map(self):
+        self.piecemap.clear()
+        for idx in range(8*8):
+            piece = self.board.piece_at(idx)
+            if piece is not None:
+                if piece.symbol() not in self.piecemap:
+                    self.piecemap.update({piece.symbol(): [(idx % 8, 7 - math.floor(idx / 8))]})
+                else:
+                    self.piecemap[piece.symbol()] += [(idx % 8, 7 - math.floor(idx / 8))]
 
     def branches(self) -> list:
         # Generator function board.legal_moves/0
@@ -35,7 +50,10 @@ class State(object):
         # TODO: Implement Neural Net here.
         return 0  # Currently all positions are drawn
 
+    def __repr__(self):
+        return self.board.__str__()
+
 
 if __name__ == '__main__':
     s = State()
-    s.serialize()
+    print(s)
