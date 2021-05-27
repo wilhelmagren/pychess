@@ -55,7 +55,7 @@ class Square(pg.sprite.Sprite):
 class Information(pg.sprite.Sprite):
     """
     Information class, inheriting from pygame Sprite object.
-    Used to render various text information about the current state of the board.
+    Used to render various text information about the current state of the board
     One Information object is initialized in the Game object, to hold necessary information.
     """
     def __init__(self):
@@ -210,7 +210,6 @@ class Game(object):
         else:
             self.engine.set_player(player, float('-inf'))
         move = self.engine.find_move(state=self.state, max_depth=3)
-        print(move)
         self.state.board.push(move)
         print(f'{time.asctime()}  ::  Computer made move {move}')
 
