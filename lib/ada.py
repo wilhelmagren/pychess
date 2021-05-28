@@ -5,7 +5,6 @@ Last edited: 28/05-2021
 from book import Book
 import chess
 import time
-import random
 
 
 class Ada:
@@ -42,6 +41,7 @@ class Ada:
         return self.best_move
 
     def __iterative_deepening__(self, state, max_depth=3):
+        """
         for depth in range(max_depth):
             for move in state.branches():
                 if self.best_move is None:
@@ -55,6 +55,16 @@ class Ada:
                 else:
                     if evaluation <= self.max_val:
                         self.best_move, self.max_val = move, evaluation
+        """
+        for move in state.branches():
+            best_val = 1
+            state.board.push(move)
+            evaluation = self.__gamma__(state)
+            state.board.pop()
+            print(f'{time.asctime()}  ::  {move}, {evaluation}')
+            if evaluation <= best_val:
+                best_val = evaluation
+                self.best_move = move
 
     def __minimax__(self, player, state, alpha=float('-inf'), beta=float('inf'), depth=1):
         if depth == 0:

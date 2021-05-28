@@ -11,15 +11,13 @@ import numpy as np
 from state import State
 
 
-# Used for regression target generation
-STOCKFISH_FILEPATH = 'stockfish/stockfish_13_win_x64_avx2.exe'
 OPENING_BOOK_FILEPATH = 'data/opening_book.pgn'
 
 
 def generate_data(regression=False, num_samples=0.0):
+    state = State()
     result_values, X, Y_classification, Y_regression, num_games, reading_games = \
         {'1/2-1/2': 0, '1-0': 1, '0-1': -1}, [], [], [], 0, True
-    engine = chess.engine.SimpleEngine.popen_uci(os.path.join('../', STOCKFISH_FILEPATH))
     for fn in os.listdir('../data'):
         if not reading_games:
             break
@@ -35,9 +33,8 @@ def generate_data(regression=False, num_samples=0.0):
             value = result_values[res]
             for idx, move in enumerate(game.mainline_moves()):
                 board.push(move)
-                if regression:
-                    Y_regression.append(engine.analyse(board, chess.engine.Limit(depth=15))['score'].white())
-                bitmap = State(board).serialize()
+                state.set_board(board)
+                bitmap = state.serialize()
                 X.append(bitmap)
                 Y_classification.append(value)
             print(f'parsing game: {num_games},\ttotal positions: {len(X)}')
@@ -72,10 +69,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PGN parser')
     parser.add_argument('-r', '--regression', action='store_true', default=False, help='parse regression targets')
     args = parser.parse_args()
-
-    if args.regression:
-        np.savez_compressed('../parsed/dataset_25M', generate_data(regression=True, num_samples=10e6))
-    else:
-        np.savez_compressed('../parsed/dataset_25M', generate_data(regression=False, num_samples=10e6))
+    X, Y, yR = generate_data(regression=False, num_samples=100e3)
+    np.savez_compressed('../parsed/dataset_100K.npz', X, Y)
 
     # generate_book()

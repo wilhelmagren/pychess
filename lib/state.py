@@ -5,19 +5,39 @@ Last edited: 28/05-2021
 import chess
 import math
 import numpy as np
+import torch
+from net import resNet
+
+
+class Evaluator(object):
+    def __init__(self):
+        weights = torch.load('../nets/value_old.pth', map_location=lambda storage, loc: storage)
+        self.model = resNet()
+        self.model.load_state_dict(weights)
+
+    def __call__(self, state):
+        board = state.serialize()[None]
+        output = self.model(torch.tensor(board).float())
+        return float(output.data[0][0])
 
 
 class State(object):
     def __init__(self, board=None):
+        weights = torch.load('../nets/value.pth', map_location=lambda storage, loc: storage)
+        self.model = resNet()
+        self.model.load_state_dict(weights)
         self.board = chess.Board() if board is None else board
+        self.evaluator = Evaluator()
         self.piecemap = {}
         self.bitmap = self.serialize()
+
+    def set_board(self, board):
+        self.board = board
 
     def serialize(self) -> np.array:
         """
         8x8x12 bitmap representation of board. Extremely sparse. CNN favours sparse data...
         """
-        assert self.board.is_valid()
 
         bitmap = np.zeros(shape=(8*8, 12))
 
@@ -29,7 +49,6 @@ class State(object):
                 bitmap[idx, onehot_offset] = 1
 
         self.update_map()
-
         bitmap = np.reshape(bitmap, (12, 8, 8))
         return bitmap
 
@@ -48,8 +67,9 @@ class State(object):
         return list(self.board.legal_moves)
 
     def value(self) -> float:
-        # TODO: Implement Neural Net here.
-        return 0  # Currently all positions are drawn
+        board = self.serialize()[None]
+        output = self.model(torch.tensor(board).float())
+        return float(output.data[0][0])
 
     def __repr__(self):
         return self.board.__str__()
