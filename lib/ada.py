@@ -1,7 +1,11 @@
 """
 Author: Wilhelm Ågren
-Last edited: 26/05-2021
+Last edited: 28/05-2021
 """
+from book import Book
+import chess
+import time
+import random
 
 
 class Ada:
@@ -10,14 +14,31 @@ class Ada:
         self.max_val = max_val
         self.best_move = None
         self.transposition_table = {}
+        self.book = Book()
 
     def set_player(self, player, max_val):
         self.curr_player = player
         self.max_val = max_val
         self.best_move = None
 
-    def find_move(self, state, max_depth):
-        self.__iterative_deepening__(state=state, max_depth=max_depth)
+    def __lookup_book__(self, prev_move, ply):
+        print(f'{time.asctime()}  ::  previous move, {prev_move} at ply {ply}')
+        for transposition in self.book.openings:
+            print(transposition)
+            if transposition[ply] == prev_move:
+                print(f'{time.asctime()}  ::  found book move, {transposition[ply + 1]}')
+                self.best_move = chess.Move.from_uci(transposition[ply + 1])
+                break
+
+    def find_move(self, prev_moves, ply, state, max_depth):
+        """
+        ply is halfmove idx, i.e. how many totals moves have been performed.
+        """
+        if ply < 16:
+            self.book.__update__(prev_moves)
+            self.__lookup_book__(prev_moves[-1], ply - 1)
+        if self.best_move is None:
+            self.__iterative_deepening__(state=state, max_depth=max_depth)
         return self.best_move
 
     def __iterative_deepening__(self, state, max_depth=3):
