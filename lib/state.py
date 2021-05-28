@@ -1,6 +1,6 @@
 """
 Author: Wilhelm Ågren, wagren@kth.se
-Last edited: 24/05-2021
+Last edited: 28/05-2021
 """
 import chess
 import math
@@ -30,6 +30,9 @@ class State(object):
 
         self.update_map()
 
+        bitmap = np.reshape(bitmap, (12, 8, 8))
+        print(bitmap)
+        exit()
         return bitmap
 
     def update_map(self):
