@@ -84,7 +84,7 @@ class Game(object):
     """
     def __init__(self, WIDTH=800, HEIGHT=800, singleplayer=False, multiplayer=False, verbose=False):
         self.WIDTH, self.HEIGHT, self.sp, self.mp, self.verbose = WIDTH, HEIGHT, singleplayer, multiplayer, verbose
-        self.state, self.moves,  = State(), [],
+        self.state, self.moves = State(), []
         self.idx_to_char = {
             0: 'a',
             1: 'b',
