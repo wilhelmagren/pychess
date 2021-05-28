@@ -31,8 +31,6 @@ class State(object):
         self.update_map()
 
         bitmap = np.reshape(bitmap, (12, 8, 8))
-        print(bitmap)
-        exit()
         return bitmap
 
     def update_map(self):
