@@ -17,13 +17,20 @@ class Book:
         self.raw_openings = self.__read__()
         self.openings = self.__process__()
 
-    def __update__(self, prev_move, ply):
+    def __update__(self, prev_moves):
         """
-        remove all transpositions which does not contain prev_move at ply
+        remove all transpositions which does not contain prev_moves
         """
+        if prev_moves is []:
+            return
         updated = []
         for transposition in self.openings:
-            if transposition[ply] == prev_move:
+            transposition_list = []
+            for plydx, move in enumerate(transposition[:len(prev_moves)]):
+                if move != prev_moves[plydx]:
+                    break
+                transposition_list.append(move)
+            if len(transposition_list) == len(prev_moves):
                 updated.append(transposition)
         self.openings = updated
 
@@ -44,4 +51,6 @@ class Book:
 
 if __name__ == '__main__':
     b = Book()
+    prev_moves = ['e2e4', 'c7c6', 'd2d4', 'd7d5', 'e4e5']
+    b.__update__(prev_moves=prev_moves)
     print(b.openings)
