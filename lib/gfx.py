@@ -107,6 +107,7 @@ class Game(object):
         }
         self.clock, self.screen, self.sprite_group, self.info, self.font = self.__init_gameobjects__()
         self.active_square, self.to_move = None, True
+        self.prev_move, self.curr_ply = None, 0
         self.engine = Ada()
 
     def __init_gameobjects__(self) -> (pg.time.Clock, pg.display, pg.sprite.Group, Information, pg.font):
@@ -145,6 +146,8 @@ class Game(object):
     def update_turn(self) -> None:
         self.to_move = not self.to_move
         self.info.__update__(self.to_move)
+        self.curr_ply += 1
+        self.prev_move = self.state.board.peek().uci()
 
     def parse_move(self, xf, yf, xto, yto) -> chess.Move:
         return chess.Move.from_uci(self.idx_to_char[xf] + str(8 - yf) + self.idx_to_char[xto] + str(8 - yto))
@@ -209,7 +212,7 @@ class Game(object):
             self.engine.set_player(player, float('inf'))
         else:
             self.engine.set_player(player, float('-inf'))
-        move = self.engine.find_move(state=self.state, max_depth=3)
+        move = self.engine.find_move(prev_move=self.prev_move, ply=self.curr_ply, state=self.state, max_depth=3)
         self.state.board.push(move)
         print(f'{time.asctime()}  ::  Computer made move {move}')
 
