@@ -1,6 +1,6 @@
 """
 Author: Wilhelm Ågren, wagren@kth.se
-Last edited: 26/05-2021
+Last edited: 28/05-2021
 """
 import pickle
 
@@ -51,6 +51,6 @@ class Book:
 
 if __name__ == '__main__':
     b = Book()
-    prev_moves = ['e2e4', 'c7c6', 'd2d4', 'd7d5', 'e4e5']
-    b.__update__(prev_moves=prev_moves)
+    moves = ['e2e4', 'c7c6', 'd2d4', 'd7d5', 'e4e5']
+    b.__update__(prev_moves=moves)
     print(b.openings)
