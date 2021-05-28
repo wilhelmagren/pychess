@@ -69,14 +69,13 @@ def generate_book():
 
 
 if __name__ == '__main__':
-    """
     parser = argparse.ArgumentParser(description='PGN parser')
     parser.add_argument('-r', '--regression', action='store_true', default=False, help='parse regression targets')
     args = parser.parse_args()
 
     if args.regression:
-        np.savez_compressed('../parsed/dataset_25M', generate_data(regression=True, num_samples=25e6))
+        np.savez_compressed('../parsed/dataset_25M', generate_data(regression=True, num_samples=10e6))
     else:
-        np.savez_compressed('../parsed/dataset_25M', generate_data(regression=False, num_samples=25e6))
-    """
-    generate_book()
+        np.savez_compressed('../parsed/dataset_25M', generate_data(regression=False, num_samples=10e6))
+
+    # generate_book()
