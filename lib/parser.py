@@ -3,47 +3,83 @@ Author: Wilhelm Ågren, wagren@kth.se
 Last edited: 24/05-2021
 """
 import os
+import time
 import pickle
 import argparse
 import chess.pgn
 import chess.engine
 import numpy as np
 from state import State
+import matplotlib.pyplot as plt
 
-
+DATA_FILEPATH = '../data/ficsgamesdb_2018_chess_nomovetimes_201349.pgn'
 OPENING_BOOK_FILEPATH = 'data/opening_book.pgn'
+STOCKFISH_FILEPATH = '../stockfish/stockfish_13_win_x64_avx2.exe'
+SKIP_GAMES = 0
 
 
-def generate_data(regression=False, num_samples=0.0):
+MATED_VALUES = [-30.0, 30.0]
+CLR_MOVE = {
+    'b': -1,
+    'w': 1
+}
+
+
+def generate_data(num_games):
     state = State()
-    result_values, X, Y_classification, Y_regression, num_games, reading_games = \
-        {'1/2-1/2': 0, '1-0': 1, '0-1': -1}, [], [], [], 0, True
-    for fn in os.listdir('../data'):
-        if not reading_games:
-            break
-        pgn = open(os.path.join('../data', fn))
-        while reading_games:
+    engine = chess.engine.SimpleEngine.popen_uci(STOCKFISH_FILEPATH)
+    X, Y, tot_pos = [], [], 0
+    with open(DATA_FILEPATH) as pgn:
+        print(f'{time.asctime()}  ::  skipping {SKIP_GAMES} games')
+        for skip in range(SKIP_GAMES):
+            game = chess.pgn.read_game(pgn)
+        print(f'{time.asctime()}  ::  parsing real games now...')
+        for game_idx in range(num_games):
             game = chess.pgn.read_game(pgn)
             if game is None:
                 break
             board = game.board()
-            res = game.headers['Result']
-            if res not in result_values:
-                continue
-            value = result_values[res]
+            num_even = 1
+            num_uneven = 1
             for idx, move in enumerate(game.mainline_moves()):
                 board.push(move)
+                fen = board.fen()
                 state.set_board(board)
                 bitmap = state.serialize()
+                to_move = CLR_MOVE[fen.split(' ')[1]]
+                score = engine.analyse(board, chess.engine.Limit(depth=15))['score'].white()
+                eval = ''
+                try:
+                    eval = str(str(score.score() / 100))
+                except:
+                    if score.mate() > 0:
+                        eval = MATED_VALUES[1]
+                    elif score.mate() < 0:
+                        eval = MATED_VALUES[0]
+                    else:
+                        if to_move > 0:
+                            eval = MATED_VALUES[0]
+                        else:
+                            eval = MATED_VALUES[1]
+                eval = float(eval)
+                if -2 <= eval <= 2:
+                    num_even += 1
+                else:
+                    num_uneven += 1
+                if -2 <= eval <= 2 and num_even/(num_even + num_uneven) > 0.7:
+                    continue
                 X.append(bitmap)
-                Y_classification.append(value)
-            print(f'parsing game: {num_games},\ttotal positions: {len(X)}')
-            if len(X) > num_samples:
-                reading_games = False
+                Y.append(eval)
+                tot_pos += 1
+            print(f'{time.asctime()}  ::  parsing game {game_idx + 1},\ttotal positions {tot_pos}')
             num_games += 1
+    engine.quit()
     X = np.array(X)
-    Y_classification, Y_regression = np.array(Y_classification), np.array(Y_regression)
-    return X, Y_classification, Y_regression
+    Y = np.array(Y)
+    plot_data(Y)
+    print(f'{time.asctime()}  ::  done parsing')
+    print(X.shape, Y.shape)
+    return X, Y
 
 
 def generate_book():
@@ -65,11 +101,18 @@ def generate_book():
     pickle.dump(obj=openings, file=open('../parsed/opening_book.p', 'wb'))
 
 
+def plot_data(y):
+    plt.hist(y, bins=60, color='maroon')
+    plt.xlabel('target evaluation')
+    plt.ylabel('num labels')
+    plt.show()
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PGN parser')
     parser.add_argument('-r', '--regression', action='store_true', default=False, help='parse regression targets')
     args = parser.parse_args()
-    X, Y, yR = generate_data(regression=False, num_samples=100e3)
-    np.savez_compressed('../parsed/dataset_100K.npz', X, Y)
+    X, Y = generate_data(num_games=100)
+    np.savez_compressed('../parsed/dataset_1C_R.npz', X, Y)
 
     # generate_book()
