@@ -7,9 +7,50 @@ import numpy as np
 import torch.nn as nn
 from tqdm import tqdm
 from torch import optim
+import os
+import pandas as pd
 from torchsummary import summary
 import torch.nn.functional as F
 from torch.utils.data import Dataset
+
+
+class TestDataset(Dataset):
+    def __init__(self):
+        self.X, self.Y = self.read_files()
+        print(f'loaded, {self.X.shape}, {self.Y.shape}')
+
+    def __len__(self):
+        return self.X.shape[0]
+
+    def __getitem__(self, idx):
+        return self.X[idx], self.Y[idx]
+
+    def read_files(self) -> (list, list):
+        """
+        func read_files/1
+        @spec :: (Class(CNN)) => (list, list)
+            Read all of the parsed_data found in '../parsed_data/' and extract
+            the targets and data respectively. Returns the a list of the data and
+            a list of the corresponding targets. Order of the elements are important! Can't be changed!!!
+        """
+        data = []
+        column_list = []
+        for x in range(7 * 8 * 8):
+            column_list.append(f'x{x}')
+        for file in os.listdir('../test_parsed/'):
+            if '1000games' in file or '2000games' in file:
+                print(f'<|\tParsing data from filepath :: ../parsed_data/{file}')
+                data.append(pd.read_csv('../test_parsed/' + file))
+        train_x = []
+        train_y = []
+        for dat in data:
+            train_x.append(dat.loc[:, column_list])
+            train_y.append(dat.loc[:, dat.columns == 'y'])
+        x_data = np.concatenate(train_x, axis=0)
+        y_data = np.concatenate(train_y, axis=0)
+        x_data = np.reshape(x_data, (x_data.shape[0], 7, 8, 8))
+
+        return x_data, y_data
 
 
 class ChessDataset(Dataset):
@@ -120,26 +161,46 @@ class resNet(nn.Module):
         return torch.tanh(x)
 
 
+class regNet(nn.Module):
+    def __init__(self):
+        super(regNet, self).__init__()
+        self.a = nn.Conv2d(in_channels=7, out_channels=16, kernel_size=(3, 3), padding=1)
+        self.b = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=(5, 5))
+        self.c = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=(3, 3))
+        self.d = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=(2, 2))
+        self.e = nn.Linear(128, 64)
+        self.f = nn.Linear(64, 1)
+        self.drop = nn.Dropout(p=0.2)
+
+    def forward(self, x):
+        x = torch.relu(self.a(x))
+        x = torch.relu(self.b(x))
+        x = torch.relu(self.c(x))
+        x = torch.relu(self.d(x))
+        x = x.view(-1, 128)
+        x = torch.tanh(self.e(x))
+        x = self.drop(x)
+        x = torch.tanh(self.f(x))
+
+        return x
+
+
 if __name__ == "__main__":
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-    chess_dataset = ChessDataset()
-    train_loader = torch.utils.data.DataLoader(chess_dataset, batch_size=32, shuffle=True)
-    model = resNet()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    chess_dataset = TestDataset()
+    train_loader = torch.utils.data.DataLoader(chess_dataset, batch_size=1024, shuffle=True)
+    model = regNet()
+    model.cuda()
     summary(model, (7, 8, 8))
-    optimizer = optim.Adam(model.parameters())
+    optimizer = optim.Adagrad(model.parameters(), lr=0.05, eps=1e-7)
     floss = nn.MSELoss()
-
-    if device == "cuda:0":
-        model.cuda()
 
     model.train()
 
-    for epoch in range(10):
+    for epoch in range(20):
         all_loss = 0
         num_loss = 0
         for batch_idx, (data, target) in tqdm(enumerate(train_loader)):
-            target = target.unsqueeze(-1)
             data, target = data.to(device), target.to(device)
             data = data.float()
 
