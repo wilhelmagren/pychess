@@ -69,6 +69,8 @@ class Information(pg.sprite.Sprite):
         self.to_move_pos = (900, 50)
         self.white_time = 10
         self.black_time = 10
+        self.prev_move_pos = (850, 150)
+        self.game_result_pos = (350, 400)
 
     def __update__(self, to_move) -> None:
         self.to_move = to_move
@@ -134,6 +136,8 @@ class Game(object):
 
     def draw_info(self) -> None:
         self.screen.blit(self.font.render(self.info.to_move_text, True, (0, 0, 0)), self.info.to_move_pos)
+        if len(self.moves) > 0:
+            self.screen.blit(self.font.render("Previous move: " + self.moves[-1].uci(), True, (0, 0, 0)), self.info.prev_move_pos)
 
     def spunk_all(self) -> None:
         self.state.update_map()
@@ -292,10 +296,11 @@ class Game(object):
         if 0 <= x <= 800 and 0 <= y <= 800:
             return int(math.floor(x / 100)), int(math.floor(y / 100))
 
-    @staticmethod
-    def game_over(board) -> None:
+    def game_over(self, board) -> None:
         print(f'{time.asctime()}  ::  GAME OVER, result is {board.result()}')
-        exit(1)
+        self.screen.blit(self.font.render("Game result: " + board.result(), True, (255, 0, 0)), self.info.game_result_pos)
+        self.spunk_all()
+        time.sleep(100)
 
 
 if __name__ == '__main__':
