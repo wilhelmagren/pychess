@@ -1,6 +1,6 @@
 """
 Author: Wilhelm Ågren, wagren@kth.se
-Last edited: 26/05-2021
+Last edited: 30/05-2021
 """
 import pygame as pg
 import os
