@@ -108,7 +108,7 @@ class Game(object):
         self.clock, self.screen, self.sprite_group, self.info, self.font = self.__init_gameobjects__()
         self.active_square, self.to_move = None, True
         self.prev_moves, self.curr_ply = [], 0
-        self.engine = Ada()
+        self.engine = Ada() if singleplayer else None
 
     def __init_gameobjects__(self) -> (pg.time.Clock, pg.display, pg.sprite.Group, Information, pg.font):
         clock = pg.time.Clock()
