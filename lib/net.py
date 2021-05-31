@@ -120,80 +120,38 @@ class DeepNet(nn.Module):
         return torch.tanh(x)
 
 
-class resNet(nn.Module):
+class TinyChessNet(nn.Module):
     def __init__(self):
-        super(resNet, self).__init__()
-        self.a1 = nn.Conv2d(in_channels=7, out_channels=16, kernel_size=(3, 3), padding=1)  # 12x8x8 => 16x8x8
-        self.a2 = nn.Conv2d(in_channels=16, out_channels=16, kernel_size=(3, 3), padding=1)  # 16x8x8 => 16x8x8
-        self.a3 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=(5, 5))  # 16x8x8 => 32x4x4
-
-        self.b1 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=(3, 3), padding=1)  # 32x4x4 => 32x4x4
-        self.b2 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=(3, 3), padding=1)  # 32x4x4 => 32x4x4
-        self.b3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=(3, 3))  # 32x4x4 => 64x2x2
-
-        self.c1 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(1, 1))  # 64x2x2 => 64x2x2
-        self.c2 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=(2, 2))  # 64x2x2 => 128x1x1
-
-        self.d1 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(1, 1))  # 128x1x1
-
-        self.last1 = nn.Linear(128, 128)
-        self.last2 = nn.Linear(128, 64)
-        self.last3 = nn.Linear(64, 1)
-
-        self.dropout = nn.Dropout(p=0.2)
+        super(TinyChessNet, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels=7, out_channels=8, kernel_size=(3, 3), padding=(1, 1))  # 8x8x8
+        self.conv2 = nn.Conv2d(in_channels=8, out_channels=16, kernel_size=(5, 5))  # 16x4x4
+        self.conv3 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=(3, 3))  # 32x2x2
+        self.conv4 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=(2, 2))  # 64x1x1
+        self.fc1 = nn.Linear(64, 32)
+        self.fc2 = nn.Linear(32, 1)
+        self.dropout = nn.Dropout(p=0.3)
 
     def forward(self, x):
-        x = torch.tanh(self.a1(x))
-        x = torch.tanh(self.a2(x))
-        x = torch.tanh(self.a3(x))
-        x = torch.tanh(self.b1(x))
-        x = torch.tanh(self.b2(x))
-        x = torch.tanh(self.b3(x))
-        x = torch.tanh(self.c1(x))
-        x = torch.tanh(self.c2(x))
-        x = torch.tanh(self.d1(x))
-        x = x.view(-1, 128)
-        x = torch.tanh(self.last1(x))
-        x = self.dropout(x)
-        x = torch.tanh(self.last2(x))
-        x = self.dropout(x)
-        x = self.last3(x)
-        return torch.tanh(x)
-
-
-class regNet(nn.Module):
-    def __init__(self):
-        super(regNet, self).__init__()
-        self.a = nn.Conv2d(in_channels=7, out_channels=16, kernel_size=(3, 3), padding=1)
-        self.b = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=(5, 5))
-        self.c = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=(3, 3))
-        self.d = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=(2, 2))
-        self.e = nn.Linear(128, 64)
-        self.f = nn.Linear(64, 1)
-        self.drop = nn.Dropout(p=0.2)
-
-    def forward(self, x):
-        x = torch.relu(self.a(x))
-        x = torch.relu(self.b(x))
-        x = torch.relu(self.c(x))
-        x = torch.relu(self.d(x))
-        x = x.view(-1, 128)
-        x = torch.tanh(self.e(x))
-        x = self.drop(x)
-        x = torch.tanh(self.f(x))
-
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+        x = F.relu(self.conv4(x))
+        x = x.view(-1, 64)
+        x = torch.tanh(self.fc1(x))
+        # x = self.dropout(x)
+        x = self.fc2(x)
         return x
 
 
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    chess_dataset = TestDataset()
+    chess_dataset = ChessDataset()
     train_loader = torch.utils.data.DataLoader(chess_dataset, batch_size=1024, shuffle=True)
-    model = regNet()
+    model = TinyChessNet()
     model.cuda()
     summary(model, (7, 8, 8))
     optimizer = optim.Adagrad(model.parameters(), lr=0.05, eps=1e-7)
-    floss = nn.MSELoss()
+    floss = nn.L1Loss()
 
     model.train()
 
@@ -203,7 +161,7 @@ if __name__ == "__main__":
         for batch_idx, (data, target) in tqdm(enumerate(train_loader)):
             data, target = data.to(device), target.to(device)
             data = data.float()
-
+            target = torch.unsqueeze(target, -1)
             target = target.float()
             optimizer.zero_grad()
             output = model(data)

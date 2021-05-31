@@ -6,7 +6,7 @@ import chess
 import math
 import numpy as np
 import torch
-from net import resNet
+from net import TinyChessNet
 
 """
 class Evaluator(object):

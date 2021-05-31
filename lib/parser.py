@@ -112,7 +112,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PGN parser')
     parser.add_argument('-r', '--regression', action='store_true', default=False, help='parse regression targets')
     args = parser.parse_args()
-    X, Y = generate_data(num_games=100)
-    np.savez_compressed('../parsed/dataset_1C_R.npz', X, Y)
+    X, Y = generate_data(num_games=1000)
+    np.savez_compressed('../parsed/dataset_1K_R.npz', X, Y)
 
     # generate_book()
