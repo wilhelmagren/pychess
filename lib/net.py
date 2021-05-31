@@ -1,70 +1,66 @@
 """
 Author: Wilhelm Ågren, wagren@kth.se
-Last edited: 28/05-2021
+Last edited: 30/05-2021
 """
+import os
 import torch
 import numpy as np
 import torch.nn as nn
 from tqdm import tqdm
 from torch import optim
-import os
-import pandas as pd
-from torchsummary import summary
 import torch.nn.functional as F
+from torchsummary import summary
 from torch.utils.data import Dataset
 
 
-class TestDataset(Dataset):
-    def __init__(self):
-        self.X, self.Y = self.read_files()
-        print(f'loaded, {self.X.shape}, {self.Y.shape}')
-
-    def __len__(self):
-        return self.X.shape[0]
-
-    def __getitem__(self, idx):
-        return self.X[idx], self.Y[idx]
-
-    def read_files(self) -> (list, list):
-        """
-        func read_files/1
-        @spec :: (Class(CNN)) => (list, list)
-            Read all of the parsed_data found in '../parsed_data/' and extract
-            the targets and data respectively. Returns the a list of the data and
-            a list of the corresponding targets. Order of the elements are important! Can't be changed!!!
-        """
-        data = []
-        column_list = []
-        for x in range(7 * 8 * 8):
-            column_list.append(f'x{x}')
-        for file in os.listdir('../test_parsed/'):
-            if '1000games' in file or '2000games' in file:
-                print(f'<|\tParsing data from filepath :: ../parsed_data/{file}')
-                data.append(pd.read_csv('../test_parsed/' + file))
-        train_x = []
-        train_y = []
-        for dat in data:
-            train_x.append(dat.loc[:, column_list])
-            train_y.append(dat.loc[:, dat.columns == 'y'])
-        x_data = np.concatenate(train_x, axis=0)
-        y_data = np.concatenate(train_y, axis=0)
-        x_data = np.reshape(x_data, (x_data.shape[0], 7, 8, 8))
-
-        return x_data, y_data
-
-
 class ChessDataset(Dataset):
-    def __init__(self):
-        data = np.load('../parsed/dataset_1C_R.npz')
-        self.X = data['arr_0']
-        self.Y = data['arr_1']
-        print(f'loaded, {self.X.shape}, {self.Y.shape}')
+    """
+    Load the parsed dataset for regression positions, i.e. targets are 'Stockfish 13' evaluation.
+    Inherits from pytorch data utility 'Dataset' to create iterative set of data samples for Net.
 
-    def __len__(self):
+    |   Featuring class methods:
+    |
+    |   func __init__/2
+    |   @spec  ::  (Dataset(), str) => (Class(ChessDataset))
+    |
+    |   func __len__/1
+    |   @spec  ::  (Class()) => (int)
+    |
+    |   func __getitem__/2
+    |   @spec  ::  (Class(), int) => (np.array, np.array)
+    |
+    |   func __read__/1
+    |   @spec  ::  (str) => (np.array, np.array)
+
+    Expects the loaded data to be of shape (num_samples, 7, 8, 8) given by the State serialization.
+    Correspondingly the targets, Y, has to have same first shape as data samples, i.e. X.shape[0] == Y.shape[0]
+    """
+    def __init__(self, datadir='../parsed/'):
+        self.X, self.Y = self.__read__(datadir)
+
+    def __len__(self) -> int:
         return self.X.shape[0]
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx) -> (np.array, np.array):
         return self.X[idx], self.Y[idx]
+
+    @staticmethod
+    def __read__(datadir):
+        x, y = [], []
+        for file in os.listdir(datadir):
+            if file.__contains__('dataset_'):
+                print(' | parsing data from filepath, {}'.format(file))
+                data = np.load(os.path.join('../parsed/', file))
+                X, Y = data['arr_0'], data['arr_1']
+                x.append(X)
+                y.append(Y)
+        X = np.concatenate(x, axis=0)
+        Y = np.concatenate(y, axis=0)
+
+        assert X.shape == (X.shape[0], 7, 8, 8)
+        assert Y.shape == (Y.shape[0], )
+        print(f'loaded, {X.shape}, {Y.shape}')
+        return X, Y
 
 
 class DeepNet(nn.Module):
@@ -146,7 +142,7 @@ class TinyChessNet(nn.Module):
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     chess_dataset = ChessDataset()
-    train_loader = torch.utils.data.DataLoader(chess_dataset, batch_size=1024, shuffle=True)
+    train_loader = torch.utils.data.DataLoader(chess_dataset, batch_size=256, shuffle=True)
     model = TinyChessNet()
     model.cuda()
     summary(model, (7, 8, 8))
@@ -172,4 +168,4 @@ if __name__ == "__main__":
             all_loss += loss.item()
             num_loss += 1
         print("\n%3d: %f" % (epoch, all_loss / num_loss))
-        torch.save(model.state_dict(), "../nets/value.pth")
+        torch.save(model.state_dict(), "../nets/tiny_value.pth")
