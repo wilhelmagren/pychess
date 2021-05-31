@@ -2,3 +2,4 @@
 data/
 stockfish/
 parsed/
+lib/__pycache__/
