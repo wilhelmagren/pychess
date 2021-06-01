@@ -39,7 +39,7 @@ class ChessDataset(Dataset):
     def __init__(self, datadir='../parsed/'):
         self.X, self.Y = self.__read__(datadir)
         self.__visualize__()
-        self.__normalize__(a=-1, b=1)
+        self.__normalize__(full=False, a=-1, b=1)
         self.__visualize__()
 
     def __len__(self) -> int:
@@ -48,16 +48,17 @@ class ChessDataset(Dataset):
     def __getitem__(self, idx) -> (np.array, np.array):
         return self.X[idx], self.Y[idx]
 
-    def __normalize__(self, a=0, b=1):
+    def __normalize__(self, full=False, a=0, b=1):
         """
         Min-max feature scaling, brings all values into the range [0, 1]. Also called unity-based normalization.
         Can be used to restrict the range of values between any arbitrary points a, b.
         X' = a + (X- Xmin)(b - a)/(Xmax - Xmin)
         """
-        self.Y[self.Y > 30] = 15
-        self.Y[self.Y < -30] = -15
-        self.Y = (self.Y + 30)/60
-        self.Y = a + self.Y*(b - a)
+        self.Y[self.Y > 15] = 15
+        self.Y[self.Y < -15] = -15
+        if full:
+            self.Y = (self.Y + 15)/30
+            self.Y = a + self.Y*(b - a)
 
     def __visualize__(self):
         plt.hist(self.Y, bins=30, color='maroon')
@@ -186,16 +187,16 @@ class TinyChessNet(nn.Module):
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     chess_dataset = ChessDataset()
-    train_loader = torch.utils.data.DataLoader(chess_dataset, batch_size=256, shuffle=True)
+    train_loader = torch.utils.data.DataLoader(chess_dataset, batch_size=512, shuffle=True)
     model = TinyChessNet()
     model.cuda()
     summary(model, (7, 8, 8))
     optimizer = optim.Adagrad(model.parameters(), lr=0.05, eps=1e-7)
-    floss = nn.MSELoss()
+    floss = nn.L1Loss()
 
     model.train()
 
-    for epoch in range(20):
+    for epoch in range(50):
         all_loss = 0
         num_loss = 0
         for batch_idx, (data, target) in tqdm(enumerate(train_loader)):

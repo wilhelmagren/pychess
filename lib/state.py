@@ -24,9 +24,9 @@ class Evaluator(object):
 
 class State(object):
     def __init__(self, board=None):
-        # weights = torch.load('../nets/value.pth', map_location=lambda storage, loc: storage)
-        # self.model = resNet()
-        # self.model.load_state_dict(weights)
+        weights = torch.load('../nets/tiny_value.pth', map_location=lambda storage, loc: storage)
+        self.model = TinyChessNet()
+        self.model.load_state_dict(weights)
         self.board = chess.Board() if board is None else board
         self.piecemap = {}
         self.bitmap = self.serialize()
@@ -67,7 +67,9 @@ class State(object):
         return list(self.board.legal_moves)
 
     def value(self) -> float:
-        return 0
+        board = self.serialize()[None]
+        output = self.model(torch.tensor(board).float())
+        return float(output.data[0][0])
 
     def __repr__(self):
         return self.board.__str__()
