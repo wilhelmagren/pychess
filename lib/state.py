@@ -6,7 +6,7 @@ import chess
 import math
 import numpy as np
 import torch
-from net import TinyChessNet
+from net import TinyChessNet, TinyPruneNet
 
 """
 class Evaluator(object):
@@ -24,9 +24,12 @@ class Evaluator(object):
 
 class State(object):
     def __init__(self, board=None):
-        weights = torch.load('../nets/tiny_value.pth', map_location=lambda storage, loc: storage)
-        self.model = TinyChessNet()
-        self.model.load_state_dict(weights)
+        weights_prune = torch.load('../nets/tiny_class_value.pth', map_location=lambda storage, loc: storage)
+        weights_reg = torch.load('../nets/tiny_value_R.pth', map_location=lambda storage, loc: storage)
+        self.model_prune = TinyPruneNet()
+        self.model_reg = TinyChessNet()
+        self.model_prune.load_state_dict(weights_prune)
+        self.model_reg.load_state_dict(weights_reg)
         self.board = chess.Board() if board is None else board
         self.piecemap = {}
         self.bitmap = self.serialize()
@@ -66,9 +69,34 @@ class State(object):
         # Generator function board.legal_moves/0
         return list(self.board.legal_moves)
 
+    def best_moves(self, num_moves=3):
+        c2i = {
+            'a': 0,
+            'b': 1,
+            'c': 2,
+            'd': 3,
+            'e': 4,
+            'f': 5,
+            'g': 6,
+            'h': 7
+        }
+        board = self.serialize()[None]
+        soft = torch.nn.Softmax(dim=1)
+        output = soft(self.model_prune(torch.tensor(board).float()))
+        _, indices = torch.topk(output, num_moves, largest=True)
+        from_move_idx, bestmoves = [], []
+        for idx in indices[0]:
+            from_move_idx.append(idx)
+        for move in self.branches():
+            moveaslist = list(move.uci())
+            for idx in list(map(int, from_move_idx)):
+                if c2i[moveaslist[0]] == (idx % 8) and int(moveaslist[1]) == (math.ceil(idx / 8)):
+                    bestmoves.append(move)
+        return bestmoves
+
     def value(self) -> float:
         board = self.serialize()[None]
-        output = self.model(torch.tensor(board).float())
+        output = self.model_reg(torch.tensor(board).float())
         return float(output.data[0][0])
 
     def __repr__(self):

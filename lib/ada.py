@@ -22,6 +22,7 @@ class Ada:
 
     def set_player(self, player):
         self.curr_player = player
+        self.max_val = float('-inf') if player else float('inf')
         self.best_move = None
 
     def __lookup_book__(self, prev_move, ply):
@@ -46,18 +47,15 @@ class Ada:
         return self.best_move
 
     def __explore_leaves__(self, state):
-        self.max_val = float('-inf') if self.curr_player else float('inf')
-        for move in state.branches():
+        for move in self.__topmoves__(state):
             state.board.push(move)
-            evaluation = self.__gamma__(state)
+            my_val = self.__gamma__(state)
             state.board.pop()
-            print(f'{time.asctime()}  ::  {move}, {evaluation}')
-            if self.curr_player:
-                if evaluation >= self.max_val:
-                    self.best_move, self.max_val = move, evaluation
-            else:
-                if evaluation <= self.max_val:
-                    self.best_move, self.max_val = move, evaluation
+            if my_val <= self.max_val:
+                print('{}  ::  found better move, {}, {:.2f}<={:.2f}'.format(time.asctime(), move, my_val, self.max_val))
+                self.best_move = move
+                self.max_val = my_val
+
         if self.best_move is None:
             print(f'{time.asctime()}  ::  no move found(?), randomly choosing move..')
             self.best_move = random.choice(state.branches())
@@ -117,6 +115,10 @@ class Ada:
                 continue
             trimmed.append(move)
         return trimmed
+
+    @staticmethod
+    def __topmoves__(state):
+        return state.best_moves()
 
     @staticmethod
     def __gamma__(state):

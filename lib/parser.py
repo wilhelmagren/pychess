@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 DATA_FILEPATH = '../data/ficsgamesdb_2018_chess_nomovetimes_201349.pgn'
 OPENING_BOOK_FILEPATH = 'data/opening_book.pgn'
 STOCKFISH_FILEPATH = '../stockfish/stockfish_13_win_x64_avx2.exe'
-SKIP_GAMES = 3000
+SKIP_GAMES = 0
 
 
 MATED_VALUES = [-30.0, 30.0]
@@ -48,10 +48,10 @@ def generate_data(num_games):
             if game is None:
                 break
             board = game.board()
-            for idx, move in enumerate(game.mainline_moves()):
-                board.push(move)
+            for move in game.mainline_moves():
                 state.set_board(board)
                 bitmap = state.serialize()
+                board.push(move)
                 pos = list(move.uci())[:2]
                 sqr_idx = c2i[pos[0]] + 8*(int(pos[1]) - 1)
                 X.append(bitmap)
@@ -97,7 +97,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PGN parser')
     parser.add_argument('-r', '--regression', action='store_true', default=False, help='parse regression targets')
     args = parser.parse_args()
-    X, Y = generate_data(num_games=1000)
-    np.savez_compressed('../parsed/dataset_batch4_1K_C.npz', X, Y)
+    X, Y = generate_data(num_games=5000)
+    np.savez_compressed('../parsed/dataset_batch1_5K_C.npz', X, Y)
 
     # generate_book()
