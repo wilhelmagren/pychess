@@ -8,6 +8,7 @@ import numpy as np
 import torch.nn as nn
 from tqdm import tqdm
 from torch import optim
+import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from torchsummary import summary
 from torch.utils.data import Dataset
@@ -37,6 +38,9 @@ class ChessDataset(Dataset):
     """
     def __init__(self, datadir='../parsed/'):
         self.X, self.Y = self.__read__(datadir)
+        self.__visualize__()
+        self.__normalize__(a=-1, b=1)
+        self.__visualize__()
 
     def __len__(self) -> int:
         return self.X.shape[0]
@@ -44,11 +48,28 @@ class ChessDataset(Dataset):
     def __getitem__(self, idx) -> (np.array, np.array):
         return self.X[idx], self.Y[idx]
 
+    def __normalize__(self, a=0, b=1):
+        """
+        Min-max feature scaling, brings all values into the range [0, 1]. Also called unity-based normalization.
+        Can be used to restrict the range of values between any arbitrary points a, b.
+        X' = a + (X- Xmin)(b - a)/(Xmax - Xmin)
+        """
+        self.Y[self.Y > 30] = 15
+        self.Y[self.Y < -30] = -15
+        self.Y = (self.Y + 30)/60
+        self.Y = a + self.Y*(b - a)
+
+    def __visualize__(self):
+        plt.hist(self.Y, bins=30, color='maroon')
+        plt.xlabel('target evaluation')
+        plt.ylabel('num labels')
+        plt.show()
+
     @staticmethod
     def __read__(datadir):
         x, y = [], []
         for file in os.listdir(datadir):
-            if file.__contains__('dataset_'):
+            if file.__contains__('_R'):
                 print(' | parsing data from filepath, {}'.format(file))
                 data = np.load(os.path.join('../parsed/', file))
                 X, Y = data['arr_0'], data['arr_1']
@@ -170,7 +191,7 @@ if __name__ == "__main__":
     model.cuda()
     summary(model, (7, 8, 8))
     optimizer = optim.Adagrad(model.parameters(), lr=0.05, eps=1e-7)
-    floss = nn.L1Loss()
+    floss = nn.MSELoss()
 
     model.train()
 
