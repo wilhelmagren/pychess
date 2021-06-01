@@ -116,6 +116,29 @@ class DeepNet(nn.Module):
         return torch.tanh(x)
 
 
+class TinyPruneNet(nn.Module):
+    def __init__(self):
+        super(TinyPruneNet, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels=7, out_channels=16, kernel_size=(3, 3), padding=(1, 1))
+        self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=(5, 5))  # 16x4x4
+        self.conv3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=(3, 3))  # 32x2x2
+        self.conv4 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=(2, 2))  # 64x1x1
+        self.fc1 = nn.Linear(128, 100)
+        self.fc2 = nn.Linear(100, 64)
+        self.dropout = nn.Dropout(p=0.3)
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+        x = F.relu(self.conv4(x))
+        x = x.view(-1, 128)
+        x = torch.tanh(self.fc1(x))
+        # x = self.dropout(x)
+        x = self.fc2(x)
+        return x
+
+
 class TinyChessNet(nn.Module):
     def __init__(self):
         super(TinyChessNet, self).__init__()
@@ -134,7 +157,7 @@ class TinyChessNet(nn.Module):
         x = F.relu(self.conv4(x))
         x = x.view(-1, 64)
         x = torch.tanh(self.fc1(x))
-        # x = self.dropout(x)
+        x = self.dropout(x)
         x = self.fc2(x)
         return x
 
