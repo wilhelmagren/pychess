@@ -8,6 +8,7 @@ import numpy as np
 import torch.nn as nn
 from tqdm import tqdm
 from torch import optim
+import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from torchsummary import summary
 from torch.utils.data import Dataset
@@ -24,10 +25,10 @@ class ChessDataset(Dataset):
     |   @spec  ::  (Dataset(), str) => (Class(ChessDataset))
     |
     |   func __len__/1
-    |   @spec  ::  (Class()) => (int)
+    |   @spec  ::  (class) => (int)
     |
     |   func __getitem__/2
-    |   @spec  ::  (Class(), int) => (np.array, np.array)
+    |   @spec  ::  (class, int) => (np.array, np.array)
     |
     |   func __read__/1
     |   @spec  ::  (str) => (np.array, np.array)
@@ -37,6 +38,9 @@ class ChessDataset(Dataset):
     """
     def __init__(self, datadir='../parsed/'):
         self.X, self.Y = self.__read__(datadir)
+        self.__visualize__()
+        # self.__normalize__(a=-1, b=1)
+        # self.__visualize__()
 
     def __len__(self) -> int:
         return self.X.shape[0]
@@ -44,11 +48,28 @@ class ChessDataset(Dataset):
     def __getitem__(self, idx) -> (np.array, np.array):
         return self.X[idx], self.Y[idx]
 
+    def __normalize__(self, a=0, b=1):
+        """
+        Min-max feature scaling, brings all values into the range [0, 1]. Also called unity-based normalization.
+        Can be used to restrict the range of values between any arbitrary points a, b.
+        X' = a + (X- Xmin)(b - a)/(Xmax - Xmin)
+        """
+        self.Y[self.Y > 30] = 30
+        self.Y[self.Y < -30] = -30
+        self.Y = (self.Y + 30)/60
+        self.Y = a + self.Y*(b - a)
+
+    def __visualize__(self):
+        plt.hist(self.Y, bins=60, color='maroon')
+        plt.xlabel('target evaluation')
+        plt.ylabel('num labels')
+        plt.show()
+
     @staticmethod
-    def __read__(datadir):
+    def __read__(datadir) -> (np.array, np.array):
         x, y = [], []
         for file in os.listdir(datadir):
-            if file.__contains__('dataset_'):
+            if file.__contains__('dataset_batch') or file.__contains__('dataset_tactics'):
                 print(' | parsing data from filepath, {}'.format(file))
                 data = np.load(os.path.join('../parsed/', file))
                 X, Y = data['arr_0'], data['arr_1']
@@ -63,60 +84,29 @@ class ChessDataset(Dataset):
         return X, Y
 
 
-class DeepNet(nn.Module):
-    def __init__(self):
-        super(DeepNet, self).__init__()
-        self.a1 = nn.Conv2d(in_channels=12, out_channels=16, kernel_size=(3, 3), padding=1)  # 8x8x12 => 8x8x16
-        self.a2 = nn.Conv2d(in_channels=16, out_channels=16, kernel_size=(3, 3), padding=1)  # 8x8x16 => 8x8x16
-        self.a3 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=(3, 3))  # 8x8x16 => 6x6x32
-
-        self.b1 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=(3, 3), padding=1)  # 6x6x32 => 6x6x32
-        self.b2 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=(3, 3), padding=1)  # 6x6x32 => 6x6x32
-        self.b3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=(3, 3))  # 6x6x32 => 4x4x64
-
-        self.c1 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), padding=1)  # 4x4x64 => 4x4x64
-        self.c2 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), padding=1)  # 4x4x64 => 4x4x64
-        self.c3 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=(3, 3))  # 4x4x64 => 2x2x128
-
-        self.d1 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(3, 3), padding=1)  # 2x2x128 => 2x2x128
-        self.d2 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(3, 3), padding=1)  # 2x2x128 => 2x2x128
-        self.d3 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=(2, 2))  # 2x2x128 => 1x1x256
-
-        self.e1 = nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(1, 1))  # 1x1x256
-        self.e2 = nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(1, 1))  # 1x1x256
-        self.e3 = nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(1, 1))  # 1x1x256
-
-        self.last = nn.Linear(256, 1)
-
-    def forward(self, x):
-        # 8x8x16
-        x = F.relu(self.a1(x))
-        x = F.relu(self.a2(x))
-        x = F.relu(self.a3(x))
-        # 6x6x32
-        x = F.relu(self.b1(x))
-        x = F.relu(self.b2(x))
-        x = F.relu(self.b3(x))
-        # 4x4x64
-        x = F.relu(self.c1(x))
-        x = F.relu(self.c2(x))
-        x = F.relu(self.c3(x))
-        # 2x2x128
-        x = F.relu(self.d1(x))
-        x = F.relu(self.d2(x))
-        x = F.relu(self.d3(x))
-        # 1x1x256
-        x = F.relu(self.e1(x))
-        x = F.relu(self.e2(x))
-        x = F.relu(self.e3(x))
-        # 'Flatten'
-        x = x.view(-1, 256)
-        x = self.last(x)
-        # Output
-        return torch.tanh(x)
-
-
 class TinyChessNet(nn.Module):
+    """
+    Build the Neural Net for evaluating chess positions. Train/Validate/Test on the ChessDataset object.
+    Inherits from pytorch nn.module for layers composing the net. Also utilizes functional methods from
+    torch.nn.functional to calculate activation functions.
+
+    |   Featuring class methods:
+    |   func __init__/1
+    |   @spec  ::  (nn.Module) => (Class(TinyChessNet())
+    |
+    |   func __repr__/1
+    |   @spec  ::  (class) => (str)
+    |
+    |   func forward/2
+    |   @spec  ::  (class, torch.tensor) => (torch.tensor)
+
+    This Neural Net is a smaller version of the original ChessNet. Instead of enhancing each DxD slice of the board
+    three times it only performs this once. All in all it is a 6 layered CNN, with 4 initial convolutional layers
+    followed by 2 affine layers. The convolutions are designed such that the representative 'size' of the board is
+    halfed after each convolutional operation. Each convolutional layer is followed by the ReLU activation function,
+    but the affine layer(s) use tanh, since the final output is expected to be in the range [-1, 1].
+    TODO: Regularization technique - dropout - can be used if specified. Not fully tested for performance.
+    """
     def __init__(self):
         super(TinyChessNet, self).__init__()
         self.conv1 = nn.Conv2d(in_channels=7, out_channels=8, kernel_size=(3, 3), padding=(1, 1))  # 8x8x8
@@ -127,6 +117,9 @@ class TinyChessNet(nn.Module):
         self.fc2 = nn.Linear(32, 1)
         self.dropout = nn.Dropout(p=0.3)
 
+    def __repr__(self):
+        return 'TinyChessNet(nn.Module)'
+
     def forward(self, x):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
@@ -134,7 +127,6 @@ class TinyChessNet(nn.Module):
         x = F.relu(self.conv4(x))
         x = x.view(-1, 64)
         x = torch.tanh(self.fc1(x))
-        # x = self.dropout(x)
         x = self.fc2(x)
         return x
 
@@ -142,16 +134,16 @@ class TinyChessNet(nn.Module):
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     chess_dataset = ChessDataset()
-    train_loader = torch.utils.data.DataLoader(chess_dataset, batch_size=256, shuffle=True)
+    train_loader = torch.utils.data.DataLoader(chess_dataset, batch_size=1024, shuffle=True)
     model = TinyChessNet()
     model.cuda()
     summary(model, (7, 8, 8))
-    optimizer = optim.Adagrad(model.parameters(), lr=0.05, eps=1e-7)
+    optimizer = optim.Adagrad(model.parameters(), lr=0.05, eps=1e-9)
     floss = nn.L1Loss()
 
     model.train()
 
-    for epoch in range(20):
+    for epoch in range(40):
         all_loss = 0
         num_loss = 0
         for batch_idx, (data, target) in tqdm(enumerate(train_loader)):
@@ -164,8 +156,7 @@ if __name__ == "__main__":
             loss = floss(output, target)
             loss.backward()
             optimizer.step()
-
             all_loss += loss.item()
             num_loss += 1
-        print("\n%3d: %f" % (epoch, all_loss / num_loss))
-        torch.save(model.state_dict(), "../nets/tiny_value.pth")
+        print("\nepoch %3d:  loss %f" % (epoch, all_loss / num_loss))
+        torch.save(model.state_dict(), "../nets/tiny_value_big.pth")

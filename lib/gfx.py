@@ -212,11 +212,8 @@ class Game(object):
         return False
 
     def make_computer_move(self, player) -> None:
-        if player:
-            self.engine.set_player(player, float('inf'))
-        else:
-            self.engine.set_player(player, float('-inf'))
-        move = self.engine.find_move(prev_moves=self.prev_moves, ply=self.curr_ply, state=self.state, max_depth=3)
+        self.engine.set_player(player)
+        move = self.engine.find_move(prev_moves=self.prev_moves, ply=self.curr_ply, state=self.state)
         self.state.board.push(move)
         print(f'{time.asctime()}  ::  Computer made move {move}')
 
@@ -257,6 +254,7 @@ class Game(object):
                         print(f'{time.asctime()}  ::  valid move, {self.moves[-1]}')
                         self.update_turn()
                         player_move = True
+                        print(f'{time.asctime()}  ::  current pos evaluation, {self.state.value()}')
                 if event.type == pg.QUIT:
                     print(f'{time.asctime()}  ::  PLAYER INTERRUPT, terminating process...')
                     exit(1)
@@ -265,6 +263,7 @@ class Game(object):
                 self.make_computer_move(player=False)
                 self.update_turn()
                 player_move = False
+                print(f'{time.asctime()}  ::  current pos evaluation, {self.state.value()}')
         self.game_over(self.state.board)
 
     def play_cvc(self) -> None:
