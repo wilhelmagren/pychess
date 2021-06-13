@@ -10,7 +10,6 @@ import random
 
 class Ada:
     """
-    TODO: Implement Monte-Carlo tree search
     TODO: Prune search tree with classifier!
     """
     def __init__(self, player=False, max_val=float('-inf')):
