@@ -7,14 +7,19 @@ State class wrapper for chess.Board instance.
 
 
 import math
+import torch
 import chess
 import numpy as np
+from net import ChessNet
 
 
 class State(object):
-    def __init__(self, board=None):
-        self.bitmap_shape = (12, 8, 8)
+    def __init__(self, board=None, model=True):
+        self.bitmap_shape = (11, 8, 8)
         self.board = chess.Board() if board is None else board
+        self.net = ChessNet() if model else None
+        if self.net:
+            self.net.load_state_dict(torch.load('../nets/ChessNet.pth', map_location=lambda storage, loc: storage))
 
     def __float__(self) -> float:
         return float(self.value())
@@ -33,6 +38,9 @@ class State(object):
 
     def __ceil__(self) -> float:
         return math.ceil(self.value())
+
+    def __bool__(self) -> bool:
+        return self.board.is_game_over()
 
     def __ge__(self, other) -> bool:
         return self.value() >= other.value()
@@ -53,6 +61,9 @@ class State(object):
         return round(self.value()) != round(other.value())
 
     #| | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | |
+    def setboard(self, board: chess.Board) -> None:
+        self.board = board
+
     def serialize(self) -> np.array:
         """
         bit(s) 0-5: 'one-hot' encoding of the piece at the square, positive for white pieces and negative for black
@@ -85,14 +96,17 @@ class State(object):
 
         return bitmap
 
-    @staticmethod
-    def value() -> float:
-        return 0.0
+    def value(self) -> float:
+        if self.net is None:
+            return 0.0
+        output = self.net(torch.tensor(self.serialize()[None]).float())
+        return round(float(output), 2)
 
 
 def main():
     s = State()
-    s.serialize()
+    s.setboard(chess.Board('r1bqk1nr/pppp1ppp/2nb4/4p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 4 4'))
+    print(s.value())
 
 
 if __name__ == '__main__':
