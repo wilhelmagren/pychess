@@ -32,7 +32,6 @@ class MCTS(object):
     """
     def __init__(self, root, **kwargs):
         self.root = root
-        self.true_action_history = []
         self.result_record, self.state_record = dict(), dict()
         self.gamma = kwargs.get('discount', 1.4)
         self.calculation_time = kwargs.get('time', 30)
@@ -40,8 +39,8 @@ class MCTS(object):
         self.result_record[(root.player, root.fen)], self.state_record[(root.player, root.fen)] = 0, 0
 
     def __str__(self):
-        s, depth = '', len(self.true_action_history)
-        s += ' | Current depth: {}\tNum states explored: {}\n'.format(depth, len(self.state_record))
+        s = ''
+        s += ' | Num states explored: {}\n'.format(len(self.state_record))
         s += ' | Result and state record:\n'
         for rplayer, rstate in self.result_record:
             s += ' | ({}, {})\t\t\t=> ratio: {:.2f}\n'.format(rplayer, rstate, self.result_record[(rplayer, rstate)]/self.state_record[(rplayer, rstate)])
@@ -50,36 +49,34 @@ class MCTS(object):
     def __del__(self):
         print(' | deleting MCTS class instance ...')
 
-    def update(self, action):
-        self.true_action_history.append(action)
-
-    def treesearch(self):
-        selected, node, path = False, self.root, []
-        path.append((node.player, node.fen))
-        prev_node = node
-        # 1. Selection
-        while 1:
-            node = self.selection(node)
-            if node is None:
-                # Leaf node, could not find any suitable children through UCB1 -> so give it previous node and explore
-                node = prev_node
-                break
+    def treesearch(self, num_sim):
+        for _ in range(num_sim):
+            selected, node, path = False, self.root, []
             path.append((node.player, node.fen))
-            # If any of the children of the selected node are in the state_history, then redo it!
-            if not any(self.state_record.get((child.player, child.fen)) for child in node.children()):
-                break
             prev_node = node
+            # 1. Selection
+            while 1:
+                node = self.selection(node)
+                if node is None:
+                    # Leaf node, could not find any suitable children through UCB1 -> so give it previous node and explore
+                    node = prev_node
+                    break
+                path.append((node.player, node.fen))
+                # If any of the children of the selected node are in the state_history, then redo it!
+                if not any(self.state_record.get((child.player, child.fen)) for child in node.children()):
+                    break
+                prev_node = node
 
-        assert node is not None
+            assert node is not None
 
-        # 2. Expansion
-        path.append(self.expansion(node))
+            # 2. Expansion
+            path.append(self.expansion(node))
 
-        # 3. Simulation
-        result = self.simulation(node)
+            # 3. Simulation
+            result = self.simulation(node)
 
-        # 4. Backpropagation
-        self.backprop(path, result)
+            # 4. Backpropagation
+            self.backprop(path, result)
 
     def selection(self, node):
         """
@@ -132,6 +129,20 @@ class MCTS(object):
             if (not player) and result == -1:
                 self.result_record[(player, state)] += 1
 
+    def bestnode(self):
+        bestnode = None
+        bestdiv = float('-inf')
+        for child in self.root.children():
+            if (child.player, child.fen) not in self.state_record:
+                continue
+            results = self.result_record[(child.player, child.fen)]
+            states = self.state_record[(child.player, child.fen)]
+            div = results/states
+            if div >= bestdiv:
+                bestdiv = div
+                bestnode = child
+        return bestnode
+
 
 class Node(object):
     """
@@ -160,8 +171,7 @@ def test():
     root = Node(chess.Board())
     m = MCTS(root)
     starttime = time.time()
-    for _ in range(10):
-        m.treesearch()
+    m.treesearch(10)
     print(' | performed iterative MCTS in {:.1f}s'.format(time.time() - starttime))
     print(m)
 
