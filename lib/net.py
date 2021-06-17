@@ -35,16 +35,19 @@ class ChessNet(nn.Module):
         self.conv1 = nn.Conv2d(in_channels=11, out_channels=16, kernel_size=(5, 5), padding=(1, 1))
         self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=(3, 3))
         self.conv3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=(3, 3))
-        self.aff1 = nn.Linear(in_features=256, out_features=128)
-        self.aff2 = nn.Linear(in_features=128, out_features=128)
+        self.aff1 = nn.Linear(in_features=256, out_features=256)
+        self.aff2 = nn.Linear(in_features=256, out_features=128)
         self.aff3 = nn.Linear(in_features=128, out_features=64)
         self.aff4 = nn.Linear(in_features=64, out_features=1)
         self.dropout = nn.Dropout(p=0.2)
+        self.batchnorm1 = nn.BatchNorm2d(num_features=16)
+        self.batchnorm2 = nn.BatchNorm2d(num_features=32)
+        self.batchnorm3 = nn.BatchNorm2d(num_features=64)
 
     def forward(self, x) -> torch.tensor:
-        x = torch.tanh(self.conv1(x))
-        x = torch.tanh(self.conv2(x))
-        x = torch.tanh(self.conv3(x))
+        x = torch.tanh(self.batchnorm1(self.conv1(x)))
+        x = torch.tanh(self.batchnorm2(self.conv2(x)))
+        x = torch.tanh(self.batchnorm3(self.conv3(x)))
         x = x.view(-1, 256)
         x = torch.tanh(self.aff1(x))
         x = torch.tanh(self.aff2(x))
@@ -83,7 +86,7 @@ class ChessDataset(object):
     def dataloader() -> (np.array, np.array):
         X, Y = [], []
         for file in os.listdir('../parsed/'):
-            if file.__contains__('dataset02'):
+            if file.__contains__('dataset01'):
                 print(' | parsing data from filepath {}'.format(file))
                 data = np.load(os.path.join('../parsed/', file))
                 x, y = data['arr_0'], data['arr_1']
@@ -101,13 +104,13 @@ class ChessDataset(object):
         Y = -1 + 2*Y
         """
         Y = d[1]
-        Y[Y > 7] = 7
-        Y[Y < -7] = -7
+        Y[Y > 8] = 8
+        Y[Y < -8] = -8
         return d[0], Y
 
     @staticmethod
     def histogram(x) -> None:
-        plt.hist(x, bins=14, color='maroon')
+        plt.hist(x, bins=16, color='maroon')
         plt.xlabel('state evaluation')
         plt.ylabel('num samples')
         plt.show()
@@ -139,7 +142,19 @@ def fit(net, opti, floss, traindata, validdata, epochs, dev) -> (list, list):
     print('-|'+'-'*62)
     print(' | done! Training took {:.0f}s'.format(time.time() - starttime))
     torch.save(net.state_dict(), "../nets/ChessNet.pth")
+
     return thistory, vhistory
+
+
+def validate(net, floss, testdata, dev) -> None:
+    tloss, tnumloss = 0, 0
+    for batch_idx, (d, t) in enumerate(testdata):
+        d, t = d.to(dev).float(), torch.unsqueeze(t.to(dev), -1).float()
+        output = net(d)
+        loss = floss(output, t)
+        tloss += loss.item()
+        tnumloss += 1
+    print(' | final testing result,\tL1 loss {:.3f}'.format(tloss/tnumloss))
 
 
 def plothistory(t, v):
@@ -159,11 +174,13 @@ if __name__ == '__main__':
     FULLDATA = ChessDataset()
     train_dataloader = DataLoader(FULLDATA.datasets['train'], batch_size=8192, shuffle=True)
     valid_dataloader = DataLoader(FULLDATA.datasets['valid'], batch_size=1024, shuffle=False)
+    test_dataloader = DataLoader(FULLDATA.datasets['test'], batch_size=1024, shuffle=False)
     model = ChessNet()
-    model.load_state_dict(torch.load('../nets/ChessNet.pth', map_location=lambda storage, loc: storage))
+    # model.load_state_dict(torch.load('../nets/ChessNet.pth', map_location=lambda storage, loc: storage))
     model.to(device)
     optimizer, ffloss = optim.Adam(model.parameters()), nn.L1Loss()
     summary(model, (11, 8, 8))
     model.train()
-    this, vhis = fit(model, optimizer, ffloss, train_dataloader, valid_dataloader, 30, device)
+    this, vhis = fit(model, optimizer, ffloss, train_dataloader, valid_dataloader, 10, device)
+    validate(model, ffloss, test_dataloader, device)
     plothistory(this, vhis)
