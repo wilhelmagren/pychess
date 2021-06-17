@@ -18,6 +18,7 @@ class State(object):
         self.bitmap_shape = (11, 8, 8)
         self.board = chess.Board() if board is None else board
         self.net = ChessNet() if model else None
+        self.piecemap = {}
         if self.net:
             self.net.load_state_dict(torch.load('../nets/ChessNet.pth', map_location=lambda storage, loc: storage))
 
@@ -61,8 +62,22 @@ class State(object):
         return round(self.value()) != round(other.value())
 
     #| | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | |
+    def branches(self):
+        return list(self.board.legal_moves)
+
     def setboard(self, board: chess.Board) -> None:
         self.board = board
+
+    def update_map(self):
+        self.piecemap.clear()
+        for idx in range(8 * 8):
+            x_idx, y_idx = idx % 8, 7 - math.floor(idx / 8)
+            piece = self.board.piece_at(idx)
+            if piece is not None:
+                if piece.symbol() not in self.piecemap:
+                    self.piecemap.update({piece.symbol(): [(x_idx, y_idx)]})
+                else:
+                    self.piecemap[piece.symbol()] += [(x_idx, y_idx)]
 
     def serialize(self) -> np.array:
         """
@@ -105,8 +120,15 @@ class State(object):
 
 def main():
     s = State()
-    s.setboard(chess.Board('r1bqk1nr/pppp1ppp/2nb4/4p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 4 4'))
+    s.setboard(board=chess.Board('r2qk2r/1ppbbppp/p1n5/8/B2Np3/8/PPP3PP/RNBQR1K1 w kq - 0 11'))
+    print(s.board)
     print(s.value())
+    """
+    for move in list(s.board.legal_moves):
+        s.board.push(move)
+        print(s.board, s.value(), '\n')
+        s.board.pop()
+    """
 
 
 if __name__ == '__main__':
