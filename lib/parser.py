@@ -1,6 +1,6 @@
 """
 Author: Wilhelm Ågren, wagren@kth.se
-Last edited: 24/05-2021
+Last edited: 17/06-2021
 """
 import os
 import time
@@ -13,10 +13,10 @@ import matplotlib.pyplot as plt
 
 
 TACTICS_FILEPATH = '../data/tactics.pgn'
-DATA_FILEPATH = '../data/ficsgamesdb_2018_chess_nomovetimes_201349.pgn'
+DATA_FILEPATH = '../data/ficsgamesdb_2020_blitz_nomovetimes_210322.pgn'
 OPENING_BOOK_FILEPATH = 'data/opening_book.pgn'
 STOCKFISH_FILEPATH = '../stockfish/stockfish_13_win_x64_avx2.exe'
-SKIP_GAMES = 25000
+SKIP_GAMES = 30000
 
 
 MATED_VALUES = [-30.0, 30.0]
@@ -40,7 +40,7 @@ def generate_data(num_games):
     state = State()
     engine = chess.engine.SimpleEngine.popen_uci(STOCKFISH_FILEPATH)
     X, Y, tot_pos = [], [], 0
-    with open(TACTICS_FILEPATH) as pgn:
+    with open(DATA_FILEPATH) as pgn:
         print(f'{time.asctime()}  ::  skipping {SKIP_GAMES} games')
         for skip in range(SKIP_GAMES):
             game = chess.pgn.read_game(pgn)
@@ -78,11 +78,11 @@ def generate_data(num_games):
                 if eval < -30:
                     eval = -30
                 """
-                if -1 <= eval <= 1:
+                if -5 <= eval <= 5:
                     num_even += 1
                 else:
                     num_uneven += 1
-                if -1 <= eval <= 1 and num_even/(num_even + num_uneven) > 0.6:
+                if -5 <= eval <= 5 and num_even/(num_even + num_uneven) > 0.6:
                     continue
                 """
                 X.append(bitmap)
@@ -159,5 +159,5 @@ def plot_data(y, n):
 
 if __name__ == '__main__':
     X, Y = generate_data(num_games=5000)
-    np.savez_compressed('../parsed/dataset_tactics06_5K_R.npz', X, Y)
+    np.savez_compressed('../parsed/dataset01_batch18_5K_R.npz', X, Y)
     exit()
