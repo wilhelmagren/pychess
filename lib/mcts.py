@@ -108,14 +108,15 @@ class MCTS(object):
         """
 
         """
+        starttime = time.time()
         results = {'1-0': 1, '0-1': -1, '1/2-1/2': 0}
-        new_node = copy.copy(node)
-        outcome = new_node.state.outcome()
+        statecopy = node.state
+        outcome = statecopy.outcome()
         while outcome is None:
             # Perform pseudo-random moves til final outcome
-            new_node = random.choice(new_node.children())
-            outcome = new_node.state.outcome()
-        print(' | simulation result: {}'.format(outcome.result()))
+            statecopy.push(random.choice(list(statecopy.legal_moves)))
+            outcome = statecopy.outcome()
+        print(' | simulation result:\t{},\tin {:.3f}s'.format(outcome.result(), time.time() - starttime))
         return results[outcome.result()]
 
     def backprop(self, path, result):
@@ -171,9 +172,9 @@ def test():
     root = Node(chess.Board())
     m = MCTS(root)
     starttime = time.time()
-    m.treesearch(10)
+    m.treesearch(100)
     print(' | performed iterative MCTS in {:.1f}s'.format(time.time() - starttime))
-    print(m)
+    # print(m)
 
 
 if __name__ == '__main__':
