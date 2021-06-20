@@ -16,7 +16,7 @@ TACTICS_FILEPATH = '../data/tactics.pgn'
 DATA_FILEPATH = '../data/ficsgamesdb_2020_blitz_nomovetimes_210322.pgn'
 OPENING_BOOK_FILEPATH = 'data/opening_book.pgn'
 STOCKFISH_FILEPATH = '../stockfish/stockfish_13_win_x64_avx2.exe'
-SKIP_GAMES = 30000
+SKIP_GAMES = 70000
 
 
 MATED_VALUES = [-30.0, 30.0]
@@ -61,7 +61,7 @@ def generate_data(num_games):
                 score = engine.analyse(board, chess.engine.Limit(depth=6))['score'].white()
                 eval = ''
                 try:
-                    eval = str(str(score.score() / 100))
+                    eval = str(score.score() / 100)
                 except:
                     if score.mate() > 0:
                         eval = MATED_VALUES[1]
@@ -77,14 +77,14 @@ def generate_data(num_games):
                     eval = 30
                 if eval < -30:
                     eval = -30
-                """
-                if -5 <= eval <= 5:
+                #"""
+                if -4 <= eval <= 4:
                     num_even += 1
                 else:
                     num_uneven += 1
-                if -5 <= eval <= 5 and num_even/(num_even + num_uneven) > 0.6:
+                if -4 <= eval <= 4 and num_even/(num_even + num_uneven) > 0.6:
                     continue
-                """
+                #"""
                 X.append(bitmap)
                 Y.append(eval)
                 tot_pos += 1
@@ -157,7 +157,49 @@ def plot_data(y, n):
     plt.show()
 
 
+def split():
+    X, Y = [], []
+    for file in os.listdir('../parsed/'):
+        if file.__contains__('dataset03'):
+            print(' | reading data from filepath {}'.format(file))
+            data = np.load(os.path.join('../parsed/', file))
+            Y.append(data['arr_1'])
+            X.append(data['arr_0'])
+    Y = np.concatenate(Y, axis=0)
+    X = np.concatenate(X, axis=0)
+
+    print(X.shape, Y.shape)
+    assert X.shape[0] == Y.shape[0]
+
+    Y[Y > 20] = 20
+    Y[Y < -20] = -20
+    x, y, count1, count2 = [], [], 0, 0
+    # 1.25 mil
+    #"""
+    for idx in range(Y.shape[0]):
+        val = Y[idx]
+        if -2 <= val <= -1 or 1 <= val <= 2:
+            count2 += 1
+            if count2 < 100000:
+                y.append(val)
+                x.append(X[idx, :, :, :])
+        if -1 <= val <= 1:
+            count1 += 1
+            if count1 < 300000:
+                y.append(val)
+                x.append(X[idx, :, :, :])
+        else:
+            y.append(val)
+            x.append(X[idx, :, :, :])
+    Y = np.array(y)
+    X = np.array(x)
+    #"""
+    print(' | loaded {}, {} samples'.format(X.shape, Y.shape))
+    np.savez_compressed('../parsed/dataset03_BIGFIXED.npz', X, Y)
+    plot_data(Y, 60)
+
+
 if __name__ == '__main__':
-    X, Y = generate_data(num_games=5000)
-    np.savez_compressed('../parsed/dataset01_batch18_5K_R.npz', X, Y)
-    exit()
+    # X, Y = generate_data(num_games=5000)
+    # np.savez_compressed('../parsed/dataset03_batch08_5K_R.npz', X, Y)
+    split()

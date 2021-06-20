@@ -120,7 +120,7 @@ class State(object):
 
 def main():
     s = State()
-    s.setboard(board=chess.Board('r2qk2r/1ppbbppp/p1n5/8/B2Np3/8/PPP3PP/RNBQR1K1 w kq - 0 11'))
+    s.setboard(board=chess.Board())
     print(s.board)
     print(s.value())
     """
