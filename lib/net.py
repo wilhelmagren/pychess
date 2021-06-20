@@ -13,9 +13,11 @@ import numpy as np
 import torch.nn as nn
 from torch import optim
 import matplotlib.pyplot as plt
+import torch.nn.functional as F
 from torchsummary import summary
 from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
+plt.style.context('classic')
 
 
 class ChessNet(nn.Module):
@@ -32,27 +34,24 @@ class ChessNet(nn.Module):
     """
     def __init__(self):
         super(ChessNet, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels=11, out_channels=16, kernel_size=(5, 5), padding=(1, 1))
+        self.conv1 = nn.Conv2d(in_channels=11, out_channels=16, kernel_size=(3, 3))
         self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=(3, 3))
-        self.conv3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=(3, 3))
-        self.aff1 = nn.Linear(in_features=256, out_features=256)
-        self.aff2 = nn.Linear(in_features=256, out_features=128)
-        self.aff3 = nn.Linear(in_features=128, out_features=64)
-        self.aff4 = nn.Linear(in_features=64, out_features=1)
+        self.affine1 = nn.Linear(in_features=512, out_features=256)
+        self.affine2 = nn.Linear(in_features=256, out_features=128)
+        self.affine3 = nn.Linear(in_features=128, out_features=1)
+
+        # Regularization
         self.dropout = nn.Dropout(p=0.2)
         self.batchnorm1 = nn.BatchNorm2d(num_features=16)
         self.batchnorm2 = nn.BatchNorm2d(num_features=32)
-        self.batchnorm3 = nn.BatchNorm2d(num_features=64)
 
     def forward(self, x) -> torch.tensor:
-        x = torch.tanh(self.batchnorm1(self.conv1(x)))
-        x = torch.tanh(self.batchnorm2(self.conv2(x)))
-        x = torch.tanh(self.batchnorm3(self.conv3(x)))
-        x = x.view(-1, 256)
-        x = torch.tanh(self.aff1(x))
-        x = torch.tanh(self.aff2(x))
-        x = torch.tanh(self.aff3(x))
-        x = self.aff4(x)
+        x = F.relu(self.batchnorm1(self.conv1(x)))
+        x = F.relu(self.batchnorm2(self.conv2(x)))
+        x = x.view(-1, 512)
+        x = F.relu(self.affine1(x))
+        x = torch.tanh(self.affine2(x))
+        x = self.affine3(x)
         return x
 
 
@@ -69,7 +68,7 @@ class PartitionDataset(Dataset):
 
 class ChessDataset(object):
     def __init__(self):
-        X, Y = self.normalize(self.dataloader())
+        X, Y = self.dataloader()
         self.histogram(Y)
         self.datasets = self.split(X, Y, 0.2)
 
@@ -86,7 +85,7 @@ class ChessDataset(object):
     def dataloader() -> (np.array, np.array):
         X, Y = [], []
         for file in os.listdir('../parsed/'):
-            if file.__contains__('dataset01'):
+            if file.__contains__('dataset01_BIG'):
                 print(' | parsing data from filepath {}'.format(file))
                 data = np.load(os.path.join('../parsed/', file))
                 x, y = data['arr_0'], data['arr_1']
@@ -98,19 +97,19 @@ class ChessDataset(object):
         return X, Y
 
     @staticmethod
-    def normalize(d):
+    def normalize(d) -> (np.array, np.array):
         """ Min-max feature scaling, with complementary (a, b)
         Y = (d[1] + 30)/60
         Y = -1 + 2*Y
         """
         Y = d[1]
-        Y[Y > 8] = 8
-        Y[Y < -8] = -8
+        Y[Y > 10] = 10
+        Y[Y < -10] = -10
         return d[0], Y
 
     @staticmethod
     def histogram(x) -> None:
-        plt.hist(x, bins=16, color='maroon')
+        plt.hist(x, bins=40, color='maroon')
         plt.xlabel('state evaluation')
         plt.ylabel('num samples')
         plt.show()
@@ -118,6 +117,7 @@ class ChessDataset(object):
 
 def fit(net, opti, floss, traindata, validdata, epochs, dev) -> (list, list):
     starttime, thistory, vhistory = time.time(), [], []
+    model.train()
     for epoch in range(epochs):
         tloss, numtloss = 0, 0
         vloss, numvloss = 0, 0
@@ -130,12 +130,13 @@ def fit(net, opti, floss, traindata, validdata, epochs, dev) -> (list, list):
             opti.step()
             tloss += loss.item()
             numtloss += 1
-        for batch_idx, (d, t) in enumerate(validdata):
-            d, t = d.to(dev).float(), torch.unsqueeze(t.to(dev), -1).float()
-            output = net(d)
-            loss = floss(output, t)
-            vloss += loss.item()
-            numvloss += 1
+        with torch.no_grad():
+            for batch_idx, (d, t) in enumerate(validdata):
+                d, t = d.to(dev).float(), torch.unsqueeze(t.to(dev), -1).float()
+                output = net(d)
+                loss = floss(output, t)
+                vloss += loss.item()
+                numvloss += 1
         thistory.append(tloss/numtloss)
         vhistory.append(vloss/numvloss)
         print(' | epoch\t{},\ttloss\t{:.3f}\tvloss\t{:.3f}'.format(epoch + 1, tloss/numtloss, vloss/numvloss))
@@ -167,6 +168,12 @@ def plothistory(t, v):
     plt.show()
 
 
+def writehist(t, v):
+    with open('../history.txt', 'a') as f:
+        for (tval, vval) in zip(t, v):
+            f.write('{},{}\n'.format(tval, vval))
+
+
 if __name__ == '__main__':
     os.system('clear')
     # Train the net
@@ -178,9 +185,9 @@ if __name__ == '__main__':
     model = ChessNet()
     # model.load_state_dict(torch.load('../nets/ChessNet.pth', map_location=lambda storage, loc: storage))
     model.to(device)
-    optimizer, ffloss = optim.Adam(model.parameters()), nn.L1Loss()
+    optimizer, ffloss = optim.Adam(model.parameters(), lr=1e-4), nn.L1Loss()
     summary(model, (11, 8, 8))
-    model.train()
     this, vhis = fit(model, optimizer, ffloss, train_dataloader, valid_dataloader, 10, device)
     validate(model, ffloss, test_dataloader, device)
     plothistory(this, vhis)
+    writehist(this, vhis)
