@@ -4,6 +4,8 @@ Last edited: 17/06-2021
 """
 
 
+import time
+import torch
 import chess
 import random
 from book import Book
@@ -18,20 +20,31 @@ class Birch(object):
         self.player, self.move, self.val = player, None, float('inf') if not player else float('-inf')
 
     def search(self, prevmoves, ply, state):
+        print(ply)
         if ply < 16:
             self.book.__update__(prevmoves)
             self.lookup_book(prevmoves[-1], ply)
         if self.move is None:
             self.explore_leaves(state)
+        return self.move
 
     def lookup_book(self, prevmove, ply):
-        possiblemoves = []
+        possiblemoves = set()
         for transposition in self.book.openings:
-            if transposition[ply] == prevmove:
-                possiblemoves.append(chess.Move.from_uci(transposition[ply + 1]))
+            if transposition[ply - 1] == str(prevmove):
+                possiblemoves.add(chess.Move.from_uci(transposition[ply]))
         if possiblemoves:
-            self.move = random.choice(possiblemoves)
+            self.move = random.choice(list(possiblemoves))
 
     def explore_leaves(self, state):
-        pass
-
+        children, statevals = state.branches(), []
+        for child in children:
+            state.board.push(child)
+            statevals.append(state.value())
+            state.board.pop()
+        print(statevals)
+        bestidx = torch.argmax(torch.tensor(statevals)) if self.player else torch.argmin(torch.tensor(statevals))
+        print(bestidx)
+        bestmove = children[bestidx]
+        print('{}  ::  best move found {}, with val {}'.format(time.asctime(), bestmove, statevals[bestidx]))
+        self.move = bestmove
