@@ -1,3 +1,13 @@
+"""
+Author: Wilhelm Ågren, wagren@kth.se
+Last edited: 20/06-2021
+
+Multi-threaded parser for evaluating chess positions using the Stockfish 13 engine.
+Reads a local Portable Game Notation (PGN) file from disk and iterates over all the
+mainline moves for each game in the file. Stores the Forsyth–Edwards Notation (FEN)
+strings with corresponding Stockfish 13 centipawn (cp) evaluation in thread-specific
+dictionaries which later can be merged using func import_table.
+"""
 import os
 import threading
 
@@ -7,6 +17,17 @@ import numpy as np
 
 
 class DataGenerator(object):
+    """
+    Wrapper class for generating chess position data.
+    Spawns x amount of threads and parses y amount of games on each thread.
+    Every 50 game each thread dumps the dictionary to file with np.savez_compressed.
+
+    There is slight overhead when starting the script. This is due to the fact that the
+    higher indexed threads have to iterate over all the games in the PGN file which they
+    should not parse. This spins them in a loop until all unecessary games have been 'read'.
+    Number of games to skip and length of for loop is: thread_num x num_games_to_parse, where
+    thread_num is 0 indexed for first thread.
+    """
     def __init__(self, pgnfile, categorical=False, **kwargs):
         self.categorical = categorical
         self.pgnfile = pgnfile
@@ -42,6 +63,7 @@ class DataGenerator(object):
         tscore_dict = {}
 
         with open(pgnfile) as pgn:
+            print(' | thread {} skipping {} games'.format(tnum, skip))
             for _ in range(skip):
                 _ = chess.pgn.read_game(pgn)
             while gamenum < self.numgames:
@@ -92,6 +114,6 @@ class DataGenerator(object):
 
 if __name__ == '__main__':
     parser = DataGenerator('../data/ficsgamesdb_2020_standard_nomovetimes_210720.pgn',
-                           False, numgames=1000, threads=5)
-    parser.import_table()
-    # parser.execute_parallel()
+                           False, numgames=5000, threads=10)
+    # parser.import_table()
+    parser.execute_parallel()
