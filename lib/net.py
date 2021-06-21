@@ -8,6 +8,7 @@ Runs with CUDA 11.0 using #!usr/bin/python, not python3!!!!
 
 import os
 import time
+import chess
 import torch
 import numpy as np
 import torch.nn as nn
@@ -16,146 +17,84 @@ import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from torchsummary import summary
 from torch.utils.data import Dataset, DataLoader
-from sklearn.model_selection import train_test_split
-plt.style.context('classic')
+plt.style.use('ggplot')
 
 
-class ChessNet(nn.Module):
-    """
-    ------------- ChessNet --------------
-    1st layer: 11x8x8 => 16x6x6
-    2nd layer: 16x6x6 => 32x4x4
-    3rd layer: 32x4x4 => 64x2x2
-    4th layer: 64x2x2 => 128
-    5th layer: 128 => 128
-    6th layer: 128 => 64
-    7th layer: 64 => 1
-    -------------------------------------
-    """
+class ChessClassifier(nn.Module):
     def __init__(self):
-        super(ChessNet, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels=11, out_channels=16, kernel_size=(3, 3))
-        self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=(3, 3))
-        self.affine1 = nn.Linear(in_features=512, out_features=256)
-        self.affine2 = nn.Linear(in_features=256, out_features=128)
-        self.affine3 = nn.Linear(in_features=128, out_features=1)
+        super(ChessClassifier, self).__init__()
+        self.l1 = nn.Linear(in_features=19*8*8, out_features=1024)
+        self.l2 = nn.Linear(in_features=1024, out_features=512)
+        self.l3 = nn.Linear(in_features=512, out_features=256)
+        self.l4 = nn.Linear(in_features=256, out_features=3)
+        self.dropout = nn.Dropout(p=0.25)
 
-        # Regularization
-        self.dropout = nn.Dropout(p=0.2)
-        self.batchnorm1 = nn.BatchNorm2d(num_features=16)
-        self.batchnorm2 = nn.BatchNorm2d(num_features=32)
-
-    def forward(self, x) -> torch.tensor:
-        x = F.relu(self.batchnorm1(self.conv1(x)))
-        x = F.relu(self.batchnorm2(self.conv2(x)))
-        x = x.view(-1, 512)
-        x = F.relu(self.affine1(x))
-        x = torch.tanh(self.affine2(x))
-        x = self.affine3(x)
+    def forward(self, x):
+        x = x.view(-1, 19*8*8)
+        x = self.dropout(F.relu(self.l1(x)))
+        x = self.dropout(F.relu(self.l2(x)))
+        x = self.dropout(F.relu(self.l3(x)))
+        x = F.relu(self.l4(x))
         return x
 
 
-class PartitionDataset(Dataset):
+class Data(Dataset):
     def __init__(self, X, Y):
         self.X, self.Y = X, Y
 
-    def __len__(self) -> int:
-        return self.X.shape[0]
+    def __len__(self):
+        return len(self.X)
 
-    def __getitem__(self, idx) -> np.array:
-        return self.X[idx], self.Y[idx]
+    def __getitem__(self, item):
+        return self.X[item], self.Y[item]
 
 
-class ChessDataset(object):
-    def __init__(self):
-        X, Y = self.dataloader()
-        self.histogram(Y)
+class DataGen:
+    def __init__(self, categorical=False):
+        X, Y = self.dataloader(categorical)
         self.datasets = self.split(X, Y, 0.2)
+        # self.histogram()
+
+    def histogram(self):
+        plt.hist(self.datasets['train'].Y, bins=3, color='gray', edgecolor='black', linewidth='1.2')
+        plt.title('Categorical distribution')
+        plt.xlabel('black-      draw      white+')
+        plt.ylabel('num training samples')
+        plt.xlim((-1, 3))
+        plt.ylim((0, 1.3*self.datasets['train'].Y.shape[0]/3))
+        plt.show()
+        plt.hist(self.datasets['valid'].Y, bins=3, color='gray', edgecolor='black', linewidth='1.2')
+        plt.title('Categorical distribution')
+        plt.xlabel('black-      draw      white+')
+        plt.ylabel('num validation samples')
+        plt.xlim((-1, 3))
+        plt.ylim((0, 1.3*self.datasets['valid'].Y.shape[0]/3))
+        plt.show()
 
     @staticmethod
-    def split(X, Y, split) -> dict:
-        train_x, tmp_x, train_y, tmp_y = train_test_split(X, Y, test_size=split)
-        valid_x, test_x, valid_y, test_y = train_test_split(tmp_x, tmp_y, test_size=0.5)
-        print(' | split:  train({}, )  valid({}, )  test({}, )'.format(train_x.shape[0], valid_x.shape[0], test_x.shape[0]))
-        return {'train': PartitionDataset(train_x, train_y),
-                'valid': PartitionDataset(valid_x, valid_y),
-                'test': PartitionDataset(test_x, test_y)}
-
-    @staticmethod
-    def dataloader() -> (np.array, np.array):
+    def dataloader(categorical):
         X, Y = [], []
         for file in os.listdir('../parsed/'):
-            if file.__contains__('dataset01_BIG'):
+            if file.__contains__('{}_BIG'.format('_C' if categorical else '_R')):
                 print(' | parsing data from filepath {}'.format(file))
-                data = np.load(os.path.join('../parsed/', file))
-                x, y = data['arr_0'], data['arr_1']
-                X.append(x)
-                Y.append(y)
-        X = np.concatenate(X, axis=0)
-        Y = np.concatenate(Y, axis=0)
-        print(' | loaded ({}, ) samples'.format(X.shape[0]))
+                data = np.load(os.path.join('../parsed/', file), allow_pickle=True)
+                X.append(data['arr_0'])
+                Y.append(data['arr_1'])
+
+        X, Y = np.concatenate(X, axis=0), np.concatenate(Y, axis=0)
+        print(' | loaded {} samples'.format(X.shape))
         return X, Y
 
     @staticmethod
-    def normalize(d) -> (np.array, np.array):
-        """ Min-max feature scaling, with complementary (a, b)
-        Y = (d[1] + 30)/60
-        Y = -1 + 2*Y
-        """
-        Y = d[1]
-        Y[Y > 10] = 10
-        Y[Y < -10] = -10
-        return d[0], Y
-
-    @staticmethod
-    def histogram(x) -> None:
-        plt.hist(x, bins=40, color='maroon')
-        plt.xlabel('state evaluation')
-        plt.ylabel('num samples')
-        plt.show()
-
-
-def fit(net, opti, floss, traindata, validdata, epochs, dev) -> (list, list):
-    starttime, thistory, vhistory = time.time(), [], []
-    model.train()
-    for epoch in range(epochs):
-        tloss, numtloss = 0, 0
-        vloss, numvloss = 0, 0
-        for batch_idx, (d, t) in enumerate(traindata):
-            d, t = d.to(dev).float(), torch.unsqueeze(t.to(dev), -1).float()
-            opti.zero_grad()
-            output = net(d)
-            loss = floss(output, t)
-            loss.backward()
-            opti.step()
-            tloss += loss.item()
-            numtloss += 1
-        with torch.no_grad():
-            for batch_idx, (d, t) in enumerate(validdata):
-                d, t = d.to(dev).float(), torch.unsqueeze(t.to(dev), -1).float()
-                output = net(d)
-                loss = floss(output, t)
-                vloss += loss.item()
-                numvloss += 1
-        thistory.append(tloss/numtloss)
-        vhistory.append(vloss/numvloss)
-        print(' | epoch\t{},\ttloss\t{:.3f}\tvloss\t{:.3f}'.format(epoch + 1, tloss/numtloss, vloss/numvloss))
-    print('-|'+'-'*62)
-    print(' | done! Training took {:.0f}s'.format(time.time() - starttime))
-    torch.save(net.state_dict(), "../nets/ChessNet.pth")
-
-    return thistory, vhistory
-
-
-def validate(net, floss, testdata, dev) -> None:
-    tloss, tnumloss = 0, 0
-    for batch_idx, (d, t) in enumerate(testdata):
-        d, t = d.to(dev).float(), torch.unsqueeze(t.to(dev), -1).float()
-        output = net(d)
-        loss = floss(output, t)
-        tloss += loss.item()
-        tnumloss += 1
-    print(' | final testing result,\tL1 loss {:.3f}'.format(tloss/tnumloss))
+    def split(X, Y, percentage):
+        indices, splitamnt = np.arange(X.shape[0]), X.shape[0]*percentage
+        np.random.shuffle(indices)
+        X, Y = X[indices, :, :], Y[indices]
+        x_train, x_valid = X[int(splitamnt):], X[:int(splitamnt)]
+        y_train, y_valid = Y[int(splitamnt):], Y[:int(splitamnt)]
+        print(' | split data into {:.0f}/{:.0f},  {}  {}'.format(100*(1 - percentage), 100*percentage, x_train.shape, x_valid.shape))
+        datasets = {'train': Data(x_train, y_train), 'valid': Data(x_valid, y_valid)}
+        return datasets
 
 
 def plothistory(t, v):
@@ -168,26 +107,41 @@ def plothistory(t, v):
     plt.show()
 
 
-def writehist(t, v):
-    with open('../history.txt', 'a') as f:
-        for (tval, vval) in zip(t, v):
-            f.write('{},{}\n'.format(tval, vval))
-
-
 if __name__ == '__main__':
     os.system('clear')
     # Train the net
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    FULLDATA = ChessDataset()
-    train_dataloader = DataLoader(FULLDATA.datasets['train'], batch_size=8192, shuffle=True)
-    valid_dataloader = DataLoader(FULLDATA.datasets['valid'], batch_size=1024, shuffle=False)
-    test_dataloader = DataLoader(FULLDATA.datasets['test'], batch_size=1024, shuffle=False)
-    model = ChessNet()
-    # model.load_state_dict(torch.load('../nets/ChessNet.pth', map_location=lambda storage, loc: storage))
+    print(' | training on device {}'.format(device))
+    data = DataGen(categorical=True)
+    model = ChessClassifier()
     model.to(device)
-    optimizer, ffloss = optim.Adam(model.parameters(), lr=1e-4), nn.L1Loss()
-    summary(model, (11, 8, 8))
-    this, vhis = fit(model, optimizer, ffloss, train_dataloader, valid_dataloader, 10, device)
-    validate(model, ffloss, test_dataloader, device)
-    plothistory(this, vhis)
-    writehist(this, vhis)
+    summary(model, (1, 1216))
+    optimizer, floss = optim.Adam(model.parameters(), lr=1e-4), nn.CrossEntropyLoss()
+    traindata = DataLoader(data.datasets['train'], batch_size=8192, shuffle=True)
+    validdata = DataLoader(data.datasets['valid'], batch_size=4096, shuffle=False)
+    model.train()
+    starttime, thist, vhist = time.time(), [], []
+    for epoch in range(50):
+        tloss, vloss = 0, 0
+        for batch_idx, (sample, label) in enumerate(traindata):
+            # Performing backprop after each training batch
+            sample, label = sample.to(device).float(), label.to(device).long()
+            optimizer.zero_grad()
+            output = model(sample)
+            loss = floss(output, label)
+            loss.backward()
+            optimizer.step()
+            tloss += loss.item()
+        # Don't perform any gradient steps, only count loss
+        for batch_idx, (sample, label) in enumerate(validdata):
+            sample, label = sample.to(device).float(), label.to(device).long()
+            output = model(sample)
+            loss = floss(output, label)
+            vloss += loss.item()
+        thist.append(tloss / len(traindata))
+        vhist.append(vloss / len(validdata))
+        print(' | epoch\t{},\ttloss\t{:.3f}\tvloss\t{:.3f}'.format(epoch + 1, tloss / len(traindata), vloss / len(validdata)))
+    print('-|' + '-' * 62)
+    print(' | done! Training took {:.0f}s'.format(time.time() - starttime))
+    torch.save(model.state_dict(), "../nets/ChessClassifier.pth")
+    plothistory(thist, vhist)
