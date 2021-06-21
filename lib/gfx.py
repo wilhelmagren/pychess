@@ -8,7 +8,7 @@ import argparse
 import time
 import math
 import chess
-from ada import Ada
+from birch import Birch
 from state import State
 
 
@@ -110,7 +110,7 @@ class Game(object):
         self.clock, self.screen, self.sprite_group, self.info, self.font = self.__init_gameobjects__()
         self.active_square, self.to_move = None, True
         self.prev_moves, self.curr_ply = [], 0
-        self.engine = Ada() if singleplayer else None
+        self.engine = Birch() if singleplayer else None
 
     def __init_gameobjects__(self) -> (pg.time.Clock, pg.display, pg.sprite.Group, Information, pg.font):
         clock = pg.time.Clock()
@@ -212,8 +212,8 @@ class Game(object):
         return False
 
     def make_computer_move(self, player) -> None:
-        self.engine.set_player(player)
-        move = self.engine.find_move(prev_moves=self.prev_moves, ply=self.curr_ply, state=self.state)
+        self.engine.setplayer(player)
+        move = self.engine.search(prevmoves=self.prev_moves, ply=self.curr_ply, state=self.state)
         self.state.board.push(move)
         print(f'{time.asctime()}  ::  Computer made move {move}')
 
@@ -232,6 +232,8 @@ class Game(object):
                         self.play_sounds()
                         print(f'{time.asctime()}  ::  valid move, {self.moves[-1]}')
                         self.update_turn()
+                        print(f'{time.asctime()}  ::  current pos evaluation, {self.state.value()}')
+                        print(f'{time.asctime()}  ::  current pos FEN, {self.state.board.fen}\n')
                 if event.type == pg.QUIT:
                     print(f'{time.asctime()}  ::  PLAYER INTERRUPT, terminating process...')
                     exit(1)
