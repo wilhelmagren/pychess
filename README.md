@@ -12,11 +12,9 @@ Inspiration and general guidelines for model architectures were found in researc
 ---
 ## TODO:
 - [ ] Start working on LaTeX document
-- [x] Train MLP for classification
-- [ ] Train CNN for classification
-- [ ] Experiment with MLP
-- [ ] Experiment with CNN
-- [ ] Compare MLP & CNN results
+- [X] Deside on architecture for MLP
+- [X] Train classifiers, batchnorm/no-bn, dropout/no-dropout, etc.
+- [ ] Compare, analyse, and conclude results
 - [ ] Implement model with tree-search
 - [x] Implement Monte Carlo Tree Search
 - [ ] Write findings in LaTeX document
