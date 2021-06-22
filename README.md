@@ -1,4 +1,4 @@
-# Deep Neural Networks for Static Chess Evaluation, a Comparative Study
+# Deep Neural Networks and Chess, a Comparative Exploration
 This repository contains the code, parsed data, and trained model for statically evaluating chess positions. 
 
 The main libraries used are, **pytorch**, **numpy**, **python-chess**, and **pygame2**.
