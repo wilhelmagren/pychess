@@ -38,14 +38,13 @@ class DataGenerator(object):
         self.threads = int(kwargs.get('threads'))
 
     def import_table(self):
-        dics, completedic, tpe = [], {}, 'C' if self.categorical else 'R'
+        dics, completedic, tpe, vals = [], {}, 'C' if self.categorical else 'R', []
         for file in os.listdir('../parsed/'):
-            if file.__contains__('BIG'):
-                continue
-            if file.__contains__('_C_TEST'.format(tpe)):
+            if file.__contains__('_AE'.format(tpe)):
                 print(' | parsing data from filepath {}'.format(file))
                 data = np.load(os.path.join('../parsed/', file), allow_pickle=True)
                 dics.append(data['arr_0'])
+                # vals.append(data['arr_1'])
         for dic in dics:
             completedic = {**completedic, **dic[()]}
         print(' | loaded {} dictionarie(s), total of {} unique positions'.format(len(dics), len(completedic)))
@@ -78,16 +77,16 @@ class DataGenerator(object):
 
         def export_thread_table():
             print(' | exporting progress for thread {}, processed {} games'.format(tnum, games_by_thread))
-            np.savez_compressed('../parsed/dataset_TEST_thread{}_R'.format(tnum), tscore_dict)
+            np.savez_compressed('../parsed/dataset2_thread{}_AE'.format(tnum), tscore_dict)
 
-        engine = chess.engine.SimpleEngine.popen_uci('../stockfish/stockfish_13_win_x64_avx2.exe')
+        # engine = chess.engine.SimpleEngine.popen_uci('../stockfish/stockfish_13_win_x64_avx2.exe')
 
         gamenum, games_by_thread, num_pos = 0, 0, 0
         tscore_dict = {}
 
         with open(pgnfile) as pgn:
             print(' | thread {} skipping {} games'.format(tnum, skip))
-            for _ in range(skip + 50000):
+            for _ in range(skip):
                 _ = chess.pgn.read_game(pgn)
             while gamenum < self.numgames:
                 game = chess.pgn.read_game(pgn)
@@ -97,7 +96,14 @@ class DataGenerator(object):
                 for move in game.mainline_moves():
                     board.push(move)
                     FEN = board.fen()
-                    if FEN not in self.store and FEN not in tscore_dict:
+                    newfen = ''
+                    for idx, subs in enumerate(FEN.split(' ')[:-3]):
+                        if idx == 0:
+                            newfen += subs
+                        else:
+                            newfen += ' ' + subs
+                    if newfen not in self.store and newfen not in tscore_dict:
+                        """
                         to_move = board.turn
                         score = engine.analyse(board, chess.engine.Limit(depth=10))['score'].white()
                         if score.mate() is None:
@@ -115,7 +121,8 @@ class DataGenerator(object):
                         if score is None:
                             print(' SCORE IS NONE!')
                             exit()
-                        tscore_dict[FEN] = score
+                        """
+                        tscore_dict[newfen] = 1
                         num_pos += 1
                 gamenum += 1
                 games_by_thread += 1
@@ -124,7 +131,7 @@ class DataGenerator(object):
                 if games_by_thread % 50 == 0:
                     export_thread_table()
 
-        engine.close()
+        # engine.close()
 
     def execute_parallel(self):
         procs = []
@@ -140,11 +147,11 @@ class DataGenerator(object):
 
 def plot(y):
     plt.style.use('ggplot')
-    plt.hist(y, bins=3, color='gray', edgecolor='black', linewidth='1.2')
-    plt.title('Categorical train distribution')
-    plt.xlabel('black-      draw      white+')
+    plt.hist(y, bins=1000, color='gray', edgecolor='black', linewidth='1.2')
+    plt.title('Regression train distribution')
+    plt.xlabel('board evaluation')  # plt.xlabel('black-      draw      white+')
     plt.ylabel('num samples')
-    plt.xlim((-1, 3))
+    plt.xlim((-12000, 12000))
     # plt.ylim((0, 1.3*y.shape[0]/3))
     plt.show()
 
@@ -167,8 +174,14 @@ def clean(y):
 def remake(data, categorical):
     X, Y, starttime = [], [], time.time()
     for bidx, fen in enumerate(data):
+        # print(any(map(lambda x: type(x) is None, data.values())))
+        if bidx < 4000000:
+            continue
+        if bidx >= 5000000:
+            break
         if len(fen.split('/')) < 6:
             continue
+        """
         bitmap = np.zeros((19, 8, 8), dtype=int)
         board, piece_offset = chess.Board(fen), {"P": 0, "N": 1, "B": 2, "R": 3, "Q": 4, "K": 5,
                                                  "p": 6, "n": 7, "b": 8, "r": 9, "q": 10, "k": 11}
@@ -188,22 +201,41 @@ def remake(data, categorical):
         X.append(bitmap[None])
         Y.append(data[fen])
         print(' | position {}'.format(bidx + 1))
+        """
+        bitmap, piecemap = np.zeros(775, dtype=int), np.zeros(shape=(12, 64), dtype=int)
+        board, piece_offset = chess.Board(fen), {"P": 0, "N": 1, "B": 2, "R": 3, "Q": 4, "K": 5,
+                                                 "p": 6, "n": 7, "b": 8, "r": 9, "q": 10, "k": 11}
+        for idx in range(64):
+            piece = board.piece_at(idx)
+            if piece:
+                piecemap[piece_offset[piece.symbol()], idx] = 1
+        bitmap[:768] = piecemap.flatten()
+        bitmap[768] = int(board.turn)
+        bitmap[769] = int(board.has_kingside_castling_rights(chess.WHITE))
+        bitmap[770] = int(board.has_queenside_castling_rights(chess.WHITE))
+        bitmap[771] = int(board.has_kingside_castling_rights(chess.BLACK))
+        bitmap[772] = int(board.has_queenside_castling_rights(chess.BLACK))
+        bitmap[773] = 1 if board.is_check() and board.turn else 0
+        bitmap[774] = 1 if board.is_check() and not board.turn else 0
+        X.append(bitmap[None])
+        # Y.append(data[fen])
+        print(' | position {}'.format(bidx + 1))
+        #"""
     X = np.concatenate(X, axis=0)
-    Y = np.array(Y)
-    print(' | done parsing in {:.1f}s, {}  {}'.format(time.time() - starttime, X.shape, Y.shape))
-    np.savez_compressed('../parsed/dataset_standard_{}_BIG_TEST.npz'.format('C' if categorical else 'R'), X, Y)
-    plot(Y)
+    # Y = np.array(Y)
+    print(' | done parsing in {:.1f}s, {}'.format(time.time() - starttime, X.shape))
+    np.savez_compressed('../parsed/AE_BIG5.npz'.format('C' if categorical else 'R'), X)
+    # plot(Y)
 
 
 if __name__ == '__main__':
-    parser = DataGenerator('../data/ficsgamesdb_2020_standard_nomovetimes_210720.pgn',
-                           True, numgames=2500, threads=2)
+    parser = DataGenerator('../data/ficsgamesdb_2020_blitz_nomovetimes_210322.pgn',
+                           False, numgames=5000, threads=10)
     # parser.execute_parallel()
     parser.import_table()
     # parser.store = clean(parser.store)
     # parser.export_table()
     # parser.rebuild_table()
-    # plot(parser.store.values())
-    remake(parser.store, True)
     # plot(parser.store)
+    remake(parser.store, False)
     # parser.execute_parallel()
