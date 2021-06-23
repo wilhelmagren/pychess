@@ -1,0 +1,5 @@
+REFORMAT+drop+bn+L2	: 79.4%
+dropout + bn + L2	: 79.2%
+dropout + bn		: 78.6%
+dropout			: 70.4%
+bn			: 55.7%
