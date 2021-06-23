@@ -53,7 +53,7 @@ class ChessClassifier(nn.Module):
         [affine-BN-ReLU-dropout]x3-affine-softmax
         """
         super(ChessClassifier, self).__init__()
-        self.l1 = nn.Linear(in_features=775, out_features=1024)
+        self.l1 = nn.Linear(in_features=391, out_features=1024)
         self.l2 = nn.Linear(in_features=1024, out_features=512)
         self.l3 = nn.Linear(in_features=512, out_features=256)
         self.l4 = nn.Linear(in_features=256, out_features=3)
@@ -63,10 +63,10 @@ class ChessClassifier(nn.Module):
         self.bn3 = nn.BatchNorm1d(num_features=256)
 
     def forward(self, x):
-        x = x.view(-1, 775)
-        x = self.dropout(F.relu(self.bn1(self.l1(x))))
-        x = self.dropout(F.relu(self.bn2(self.l2(x))))
-        x = self.dropout(F.relu(self.bn3(self.l3(x))))
+        x = x.view(-1, 6*64 + 7)
+        x = self.dropout(torch.tanh(self.bn1(self.l1(x))))
+        x = self.dropout(torch.tanh(self.bn2(self.l2(x))))
+        x = self.dropout(torch.tanh(self.bn3(self.l3(x))))
         x = self.l4(x)
         return x
 
@@ -79,13 +79,13 @@ class Data(Dataset):
         return len(self.X)
 
     def __getitem__(self, item):
-        return self.X[item], self.X[item]
+        return self.X[item], self.Y[item]
 
 
 class DataGen:
     def __init__(self, categorical=False):
         X, Y = self.dataloader(categorical)
-        self.datasets = self.split(X, Y, 0.1)  #
+        self.datasets = {'test': Data(X, Y)} # self.split(X, Y, 0.1)  #
         # self.histogram()
 
     def histogram(self):
@@ -108,16 +108,16 @@ class DataGen:
     def dataloader(categorical):
         X, Y = [], []
         for file in os.listdir('../parsed/'):
-            if file.__contains__('TEST'):
-                continue
-            if file.__contains__('AE_BIG'.format('C' if categorical else 'R')):
+            # if file.__contains__('TEST'):
+            #    continue
+            if file.__contains__('dense_TEST_C'.format('C' if categorical else 'R')):
                 print(' | parsing data from filepath {}'.format(file))
                 data = np.load(os.path.join('../parsed/', file), allow_pickle=True)
                 X.append(data['arr_0'])
-                # Y.append(data['arr_1'])
+                Y.append(data['arr_1'])
 
-        # X, Y = np.concatenate(X, axis=0), np.concatenate(Y, axis=0)
-        X = np.concatenate(X, axis=0)
+        X, Y = np.concatenate(X, axis=0), np.concatenate(Y, axis=0)
+        # X = np.concatenate(X, axis=0)
         print(' | loaded {} samples'.format(X.shape))
         return X, Y
 
@@ -125,12 +125,11 @@ class DataGen:
     def split(X, Y, percentage):
         indices, splitamnt = np.arange(X.shape[0]), X.shape[0]*percentage
         np.random.shuffle(indices)
-        # X, Y = X[indices, :], Y[indices]
-        X = X[indices, :]
+        X, Y = X[indices, :], Y[indices]
         x_train, x_valid = X[int(splitamnt):], X[:int(splitamnt)]
-        #y_train, y_valid = Y[int(splitamnt):], Y[:int(splitamnt)]
+        y_train, y_valid = Y[int(splitamnt):], Y[:int(splitamnt)]
         print(' | split data into {:.0f}/{:.0f},  {}  {}'.format(100*(1 - percentage), 100*percentage, x_train.shape, x_valid.shape))
-        datasets = {'train': Data(x_train, []), 'valid': Data(x_valid, [])}
+        datasets = {'train': Data(x_train, y_train), 'valid': Data(x_valid, y_valid)}
         return datasets
 
 
@@ -153,7 +152,7 @@ def plothistory(tl, vl, ta, va):
 
 def test(model, testdata):
     acc = 0
-    model.load_state_dict(torch.load('../nets/ChessClassifierL2.pth', map_location=lambda storage, loc: storage))
+    model.load_state_dict(torch.load('../nets/denseClassifier.pth', map_location=lambda storage, loc: storage))
     for batch_idx, (sample, label) in enumerate(testdata):
         sample, label = sample.to(device).float(), label.to(device).long()
         output = model(sample)
@@ -168,13 +167,12 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(' | training on device {}'.format(device))
     data = DataGen(categorical=True)
-    # model = ChessClassifier()
-    model = ChessAE()
+    model = ChessClassifier()
     model.to(device)
-    summary(model, (1, 775))
-    optimizer, floss = optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-4), nn.MSELoss()
-    # testdata = DataLoader(data.datasets['test'], batch_size=4096, shuffle=True)
-    #"""
+    summary(model, (1, 391))
+    optimizer, floss = optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-4), nn.CrossEntropyLoss()
+    testdata = DataLoader(data.datasets['test'], batch_size=4096, shuffle=True)
+    """
     traindata = DataLoader(data.datasets['train'], batch_size=8192, shuffle=True)
     validdata = DataLoader(data.datasets['valid'], batch_size=4096, shuffle=False)
     model.train()
@@ -183,21 +181,21 @@ if __name__ == '__main__':
         tloss, tacc, vloss, vacc = 0, 0, 0, 0
         for batch_idx, (sample, label) in enumerate(traindata):
             # Performing backprop after each training batch
-            sample, label = sample.to(device).float(), label.to(device).float()
+            sample, label = sample.to(device).float(), label.to(device).long()
             optimizer.zero_grad()
             output = model(sample)
-            # _, predicted = torch.max(output.data, 1)
-            # tacc += (predicted == label).sum().item()/output.shape[0]
+            _, predicted = torch.max(output.data, 1)
+            tacc += (predicted == label).sum().item()/output.shape[0]
             loss = floss(output, label)
             loss.backward()
             optimizer.step()
             tloss += loss.item()
         # Don't perform any gradient steps, only count loss
         for batch_idx, (sample, label) in enumerate(validdata):
-            sample, label = sample.to(device).float(), label.to(device).float()
+            sample, label = sample.to(device).float(), label.to(device).long()
             output = model(sample)
-            # _, predicted = torch.max(output.data, 1)
-            # vacc += (predicted == label).sum().item()/output.shape[0]
+            _, predicted = torch.max(output.data, 1)
+            vacc += (predicted == label).sum().item()/output.shape[0]
             loss = floss(output, label)
             vloss += loss.item()
         tlhist.append(tloss / len(traindata))
@@ -207,7 +205,7 @@ if __name__ == '__main__':
         print(' | ep {:02d},  tloss {:.4f}   vloss {:.4f},  tacc {:.1f}%   vacc {:.1f}%'.format(epoch + 1, tloss / len(traindata), vloss / len(validdata), 100*tacc / len(traindata), 100*vacc / len(validdata)))
     print('-|' + '-' * 62)
     print(' | done! Training took {:.0f}s'.format(time.time() - starttime))
-    torch.save(model.state_dict(), "../nets/AEreformat.pth")
+    torch.save(model.state_dict(), "../nets/denseClassifier.pth")
     plothistory(tlhist, vlhist, tahist, vahist)
-    #"""
-    # test(model, testdata)
+    """
+    test(model, testdata)
