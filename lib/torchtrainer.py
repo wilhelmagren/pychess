@@ -14,4 +14,11 @@ class TorchTrainer:
         self.visualize = kwargs.get['visualize']
     
     
-    
+class History(TorchTrainer):
+    def __init__(self, **kwargs)
+        super(History, self).__init__()
+        self.track = kwargs.get['type']
+
+
+if __name__ == '__main__':
+    pass
