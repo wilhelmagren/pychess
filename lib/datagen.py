@@ -1,6 +1,6 @@
 """
 Author: Wilhelm Ågren, wagren@kth.se
-Last edited: 20/06-2021
+Last edited: 25/07-2021
 
 Multi-threaded parser for evaluating chess positions using the Stockfish 13 engine.
 Reads a local Portable Game Notation (PGN) file from disk and iterates over all the
@@ -40,9 +40,9 @@ class DataGenerator(object):
     def import_table(self):
         dics, completedic, tpe, vals = [], {}, 'C' if self.categorical else 'R', []
         for file in os.listdir('../parsed/'):
-            #if file.__contains__('TEST'):
-            #    continue
-            if file.__contains__('standard_C_TEST'.format(tpe)):
+            if file.__contains__('TEST') or file.__contains__('2'):
+                continue
+            if file.__contains__('standard_C'.format(tpe)):
                 print(' | parsing data from filepath {}'.format(file))
                 data = np.load(os.path.join('../parsed/', file), allow_pickle=True)
                 dics.append(data['arr_0'])
@@ -176,6 +176,10 @@ def clean(y):
 def remake(data, categorical):
     X, Y, starttime = [], [], time.time()
     for bidx, fen in enumerate(data):
+        if bidx >= 3000000:
+            break
+        if bidx < 2000000:
+            continue
         # print(any(map(lambda x: type(x) is None, data.values())))
         if len(fen.split('/')) < 6:
             continue
@@ -218,7 +222,6 @@ def remake(data, categorical):
         X.append(bitmap[None])
         # Y.append(data[fen])
         print(' | position {}'.format(bidx + 1))
-        """
         # 6x64 + 7
         bitmap, piecemap = np.zeros(6*64 + 7, dtype=int), np.zeros(shape=(6, 64), dtype=int)
         board, piece_offset = chess.Board(fen), {"P": 0, "N": 1, "B": 2, "R": 3, "Q": 4, "K": 5,
@@ -238,11 +241,29 @@ def remake(data, categorical):
         X.append(bitmap[None])
         Y.append(data[fen])
         print(' | position {}'.format(bidx + 1))
-
+        """
+        bitmap = np.zeros((13, 64), dtype=int)
+        board, piece_offset = chess.Board(fen), {"P": 0, "N": 1, "B": 2, "R": 3, "Q": 4, "K": 5,
+                                                 "p": 0, "n": 1, "b": 2, "r": 3, "q": 4, "k": 5}
+        for idx in range(64):
+            piece = board.piece_at(idx)
+            if piece:
+                bitmap[piece_offset[piece.symbol()], idx] = 1 if piece.symbol().isupper() else -1
+                bitmap[6, idx] = int(board.turn)
+                bitmap[7, idx] = int(board.has_kingside_castling_rights(chess.WHITE))
+                bitmap[8, idx] = int(board.has_queenside_castling_rights(chess.WHITE))
+                bitmap[9, idx] = int(board.has_kingside_castling_rights(chess.BLACK))
+                bitmap[10, idx] = int(board.has_queenside_castling_rights(chess.BLACK))
+                bitmap[11, idx] = 1 if board.is_check() and board.turn else 0
+                bitmap[12, idx] = 1 if board.is_check() and not board.turn else 0
+        bitmap = np.reshape(bitmap, newshape=(13, 8, 8))
+        X.append(bitmap[None])
+        Y.append(data[fen])
+        print(' | position {}'.format(bidx + 1))
     X = np.concatenate(X, axis=0)
     Y = np.array(Y)
     print(' | done parsing in {:.1f}s, {}'.format(time.time() - starttime, X.shape))
-    np.savez_compressed('../parsed/dense_TEST_C.npz'.format('C' if categorical else 'R'), X, Y)
+    np.savez_compressed('../parsed/dense_CNN_TRAIN_C_BIG3.npz'.format('C' if categorical else 'R'), X, Y)
     plot(Y)
 
 
@@ -254,6 +275,6 @@ if __name__ == '__main__':
     # parser.store = clean(parser.store)
     # parser.export_table()
     # parser.rebuild_table()
-    # plot(parser.store)
+    # plot(parser.store.values())
     remake(parser.store, True)
     # parser.execute_parallel()

@@ -71,6 +71,101 @@ class ChessClassifier(nn.Module):
         return x
 
 
+class CNNChessClassifier(nn.Module):
+    # Not special with flags
+    def __init__(self):
+        super(CNNChessClassifier, self).__init__()
+        self.c1 = nn.Conv2d(in_channels=13, out_channels=16, kernel_size=(3, 3))
+        self.c2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=(3, 3))
+        self.c3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=(3, 3))
+        self.dropout = nn.Dropout(p=0.25)
+        # Since batch normalization on C dimension, commonly refered to as 'Spatial Batch Normalization'
+        self.bn1 = nn.BatchNorm2d(16, 6, 6)
+        self.bn2 = nn.BatchNorm2d(32, 4, 4)
+        self.bn3 = nn.BatchNorm2d(64, 2, 2)
+        self.l1 = nn.Linear(256, 256)
+        self.l2 = nn.Linear(256, 128)
+        self.l3 = nn.Linear(128, 64)
+        self.l4 = nn.Linear(64, 3)
+        self.bn4 = nn.BatchNorm1d(256)
+        self.bn5 = nn.BatchNorm1d(128)
+        self.bn6 = nn.BatchNorm1d(64)
+
+    def forward(self, x):
+        x = torch.tanh(self.bn1(self.c1(x)))
+        x = torch.tanh(self.bn2(self.c2(x)))
+        x = torch.tanh(self.bn3(self.c3(x)))
+        # 64*2*2 = 256
+        x = x.view(-1, 256)
+        x = self.dropout(torch.tanh(self.bn4(self.l1(x))))
+        x = self.dropout(torch.tanh(self.bn5(self.l2(x))))
+        x = self.dropout(torch.tanh(self.bn6(self.l3(x))))
+        x = self.l4(x)  # ????? negative log-likelihood does the softmax activation fuynction for me. so...
+
+        return x
+
+
+class CNNChessClassifierMod(nn.Module):
+    def __init__(self):
+        super(CNNChessClassifierMod, self).__init__()
+        self.c1 = nn.Conv2d(in_channels=6, out_channels=16, kernel_size=(3, 3))
+        self.c2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=(3, 3))
+        self.c3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=(3, 3))
+        self.dropout = nn.Dropout(p=0.25)
+        # Since batch normalization on C dimension, commonly refered to as 'Spatial Batch Normalization'
+        self.bn1 = nn.BatchNorm2d(16, 6, 6)
+        self.bn2 = nn.BatchNorm2d(32, 4, 4)
+        self.bn3 = nn.BatchNorm2d(64, 2, 2)
+        self.l1 = nn.Linear(256+7, 256)
+        self.l2 = nn.Linear(256, 128)
+        self.l3 = nn.Linear(128, 64)
+        self.l4 = nn.Linear(64, 3)
+        self.bn4 = nn.BatchNorm1d(256)
+        self.bn5 = nn.BatchNorm1d(128)
+        self.bn6 = nn.BatchNorm1d(64)
+
+    def forward(self, x):
+        # shape(x): Bx13x8x8
+        conv_data = x[:, :6, :, :]
+        bitmap_flags = x[:, 6:, 0, 0]
+        x = torch.tanh(self.bn1(self.c1(conv_data)))
+        x = torch.tanh(self.bn2(self.c2(x)))
+        x = torch.tanh(self.bn3(self.c3(x)))
+        # 64*2*2 = 256
+        x = x.view(-1, 256)
+        x = torch.cat((x, bitmap_flags), dim=1)
+        x = self.dropout(torch.tanh(self.bn4(self.l1(x))))
+        x = self.dropout(torch.tanh(self.bn5(self.l2(x))))
+        x = self.dropout(torch.tanh(self.bn6(self.l3(x))))
+        x = self.l4(x)
+        return x
+
+
+class ChessRegression(nn.Module):
+    def __init__(self):
+        """
+        MLP Architecture:
+        [affine-BN-ReLU-dropout]x3-affine-softmax
+        """
+        super(ChessRegression, self).__init__()
+        self.l1 = nn.Linear(in_features=391, out_features=1024)
+        self.l2 = nn.Linear(in_features=1024, out_features=512)
+        self.l3 = nn.Linear(in_features=512, out_features=256)
+        self.l4 = nn.Linear(in_features=256, out_features=1)
+        self.dropout = nn.Dropout(p=0.25)
+        self.bn1 = nn.BatchNorm1d(num_features=1024)
+        self.bn2 = nn.BatchNorm1d(num_features=512)
+        self.bn3 = nn.BatchNorm1d(num_features=256)
+
+    def forward(self, x):
+        x = x.view(-1, 6*64 + 7)
+        x = self.dropout(torch.tanh(self.bn1(self.l1(x))))
+        x = self.dropout(torch.tanh(self.bn2(self.l2(x))))
+        x = self.dropout(torch.tanh(self.bn3(self.l3(x))))
+        x = self.l4(x)
+        return x
+
+
 class Data(Dataset):
     def __init__(self, X, Y):
         self.X, self.Y = X, Y
@@ -85,8 +180,8 @@ class Data(Dataset):
 class DataGen:
     def __init__(self, categorical=False):
         X, Y = self.dataloader(categorical)
-        self.datasets = {'test': Data(X, Y)} # self.split(X, Y, 0.1)  #
-        # self.histogram()
+        self.datasets = self.split(X, Y, 0.1)  #
+        self.histogram()
 
     def histogram(self):
         plt.hist(self.datasets['train'].Y, bins=3, color='gray', edgecolor='black', linewidth='1.2')
@@ -94,23 +189,23 @@ class DataGen:
         plt.xlabel('black-      draw      white+')
         plt.ylabel('num training samples')
         plt.xlim((-1, 3))
-        plt.ylim((0, 1.3*self.datasets['train'].Y.shape[0]/3))
+        # plt.ylim((0, 1.3*self.datasets['train'].Y.shape[0]/3))
         plt.show()
         plt.hist(self.datasets['valid'].Y, bins=3, color='gray', edgecolor='black', linewidth='1.2')
         plt.title('Categorical distribution')
         plt.xlabel('black-      draw      white+')
         plt.ylabel('num validation samples')
         plt.xlim((-1, 3))
-        plt.ylim((0, 1.3*self.datasets['valid'].Y.shape[0]/3))
+        # plt.ylim((0, 1.3*self.datasets['valid'].Y.shape[0]/3))
         plt.show()
 
     @staticmethod
     def dataloader(categorical):
         X, Y = [], []
         for file in os.listdir('../parsed/'):
-            # if file.__contains__('TEST'):
-            #    continue
-            if file.__contains__('dense_TEST_C'.format('C' if categorical else 'R')):
+            if file.__contains__('TEST'):
+                continue
+            if file.__contains__('dense_CNN_TRAIN'.format('C' if categorical else 'R')):
                 print(' | parsing data from filepath {}'.format(file))
                 data = np.load(os.path.join('../parsed/', file), allow_pickle=True)
                 X.append(data['arr_0'])
@@ -126,6 +221,7 @@ class DataGen:
         indices, splitamnt = np.arange(X.shape[0]), X.shape[0]*percentage
         np.random.shuffle(indices)
         X, Y = X[indices, :], Y[indices]
+        # Y = 2*(Y + 15000)/30000
         x_train, x_valid = X[int(splitamnt):], X[:int(splitamnt)]
         y_train, y_valid = Y[int(splitamnt):], Y[:int(splitamnt)]
         print(' | split data into {:.0f}/{:.0f},  {}  {}'.format(100*(1 - percentage), 100*percentage, x_train.shape, x_valid.shape))
@@ -138,9 +234,10 @@ def plothistory(tl, vl, ta, va):
     plt.plot([x for x in range(len(vl))], vl, color='forestgreen', label='validation', linewidth=1.2)
     plt.title('loss evolution')
     plt.xlabel('epoch')
-    plt.ylabel('cross entropy')
+    plt.ylabel('MSE loss')
     plt.legend()
     plt.show()
+
     plt.plot([x for x in range(len(ta))], ta, color='royalblue', label='training', linewidth=1.2)
     plt.plot([x for x in range(len(va))], va, color='forestgreen', label='validation', linewidth=1.2)
     plt.title('accuracy evolution')
@@ -148,6 +245,7 @@ def plothistory(tl, vl, ta, va):
     plt.ylabel('accuracy')
     plt.legend()
     plt.show()
+
 
 
 def test(model, testdata):
@@ -167,12 +265,12 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(' | training on device {}'.format(device))
     data = DataGen(categorical=True)
-    model = ChessClassifier()
+    model = CNNChessClassifierMod()
     model.to(device)
-    summary(model, (1, 391))
+    summary(model, (13, 8, 8))
     optimizer, floss = optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-4), nn.CrossEntropyLoss()
-    testdata = DataLoader(data.datasets['test'], batch_size=4096, shuffle=True)
-    """
+    #testdata = DataLoader(data.datasets['test'], batch_size=4096, shuffle=True)
+    #"""
     traindata = DataLoader(data.datasets['train'], batch_size=8192, shuffle=True)
     validdata = DataLoader(data.datasets['valid'], batch_size=4096, shuffle=False)
     model.train()
@@ -205,7 +303,7 @@ if __name__ == '__main__':
         print(' | ep {:02d},  tloss {:.4f}   vloss {:.4f},  tacc {:.1f}%   vacc {:.1f}%'.format(epoch + 1, tloss / len(traindata), vloss / len(validdata), 100*tacc / len(traindata), 100*vacc / len(validdata)))
     print('-|' + '-' * 62)
     print(' | done! Training took {:.0f}s'.format(time.time() - starttime))
-    torch.save(model.state_dict(), "../nets/denseClassifier.pth")
+    torch.save(model.state_dict(), "../nets/denseCNNClassifierMod.pth")
     plothistory(tlhist, vlhist, tahist, vahist)
-    """
-    test(model, testdata)
+    #"""
+    #test(model, testdata)

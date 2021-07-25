@@ -4,3 +4,5 @@ dropout + bn		: 76.6%
 dropout			: 70.4%
 bn			: 55.7%
 dense+drop+bn+L2	: 77.8%
+CNN			:
+CNN modified		:
