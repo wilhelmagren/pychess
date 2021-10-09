@@ -1,4 +1,1 @@
-.idea/
-lib/__pycache__/
-data/
-nets/
+.gitignore
