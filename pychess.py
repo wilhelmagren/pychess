@@ -2,13 +2,13 @@ import os
 import sys
 import argparse
 
-from pychess_gui import PychessGUI
-from pychess_cli import PychessCLI
+from src.gui import PychessGUI
+from src.cli import PychessCLI
 
 
 def parse_args() -> argparse.Namespace:
 	parser = argparse.ArgumentParser(prog='pychess', usage='%(prog)s mode players [options]', 
-									description="pychess arguments for setting running mode and number of players", allow_abbrev=False)
+						description="pychess arguments for setting running mode and number of players", allow_abbrev=False)
 	parser.add_argument('mode', action='store', type=str,
 						help='set running mode to either cli or gui')
 	parser.add_argument('players', action='store', type=int,
