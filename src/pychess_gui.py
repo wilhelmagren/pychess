@@ -1,3 +1,6 @@
+from .pychess_game import PychessGame
+
+
 class PychessGUI:
 	def __init__(self):
 		self.mode = 'gui'

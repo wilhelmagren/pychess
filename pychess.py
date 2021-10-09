@@ -29,7 +29,7 @@ def shutdown(pychess_instance: PychessInstance) -> None:
 
 if __name__ == "__main__":
 	args = parse_args()
-	pychess_instance = PychessGUI() if args.mode == 'gui' else PychessCLI()
+	pychess_instance = PychessGUI(args.players, args.names, verbose=args.verbose) if args.mode == 'gui' else PychessCLI(args.players, args.names, verbose=args.verbose)
 	pychess_instance.start()
 	shutdown(pychess_instance)
 	
