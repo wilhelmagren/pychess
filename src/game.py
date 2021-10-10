@@ -3,7 +3,7 @@ import math
 import chess
 import unittest
 
-from .pychess_utils import *
+from .utils import *
 
 
 

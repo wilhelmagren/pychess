@@ -1,4 +1,4 @@
-from .pychess_game import PychessGame
+from .game import PychessGame
 
 
 class PychessGUI:
