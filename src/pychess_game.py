@@ -1,11 +1,8 @@
 import time
 import chess
+import unittest
 
-
-DEFAULT_WHITE		= 'white'
-DEFAULT_BLACK		= 'black'
-DEFAULT_TIME		= 300
-DEFAULT_INCREMENT	= 5
+from pychess_utils import *
 
 
 class PychessGame:
@@ -20,7 +17,7 @@ class PychessGame:
 
 	public  funcs:
 		$  PychessGame.get_info				=>  dict
-		$  PychessGame.get_state			=>	chess.Board
+, self._verbose		$  PychessGame.get_state			=>	chess.Board
 
 	private funcs:
 		$  PychessGame._VPRINT				=> 	none
@@ -32,36 +29,33 @@ class PychessGame:
 
 	implemented dunder funcs:
 		$  PychessGame.__init__				=>	PychessGame
-		$  PychessGame.__str__				=>	str
+		$  PychessGame.__str__	, self._verbose			=>	str
 
 	"""
-	def __init__(self, board=None, verbose=False, **kwargs):
+	def __init__(self, players, board=None, verbose=False, **kwargs):
 		self._state 	= chess.Board() if board is None else board
 		self._verbose 	= verbose
 		self._info		= self._init_info(kwargs)
+		self._players 	= players
+		self._ai = None if players == 2 else None
 
 
 	def __str__(self):
 		return str(self._state)
 
 
-	def _VPRINT(self, msg):
-		""" private func
-		@spec  _VPRINT(PychessGame, str)  =>  none
-		"""
-		print(msg) if self._verbose else None
-
-
 	def _init_info(self, kwargs):
 		""" private func
 		@spec  _init_info(PychessGame, dict)  =>  dict
 		"""
-		self._VPRINT("[*]  PychessGame  initializing information dictionary ...")
+		VPRINT("[*]  PychessGame  initializing information dictionary ...", self._verbose)
 		infodict = dict()
+		infodict['ai']				= self._ai
 		infodict['FEN']				= self._state.fen()
 		infodict['turn']			= self._state.turn
 		infodict['white']			= kwargs.get('white', DEFAULT_WHITE)
 		infodict['black']			= kwargs.get('black', DEFAULT_BLACK)
+		infodict['players']			= self._players
 		infodict['time-prev-move']	= time.time()
 		infodict['time-start']		= kwargs.get('time', DEFAULT_TIME)
 		infodict['time-increment']	= kwargs.get('increment', DEFAULT_INCREMENT)
@@ -69,34 +63,34 @@ class PychessGame:
 		infodict['time-black']		= infodict['time-start']
 		infodict['state-history']	= [self._state]
 		infodict['move-history']	= list()
-		self._VPRINT("[*]  PychessGame  intialization done")
+		VPRINT("[*]  PychessGame  intialization done", self._verbose)
 		return infodict
 
 	def _update_info(self, move):
 		""" private func
 		@spec  _update_info(PychessGame, chess.Move)  =>  none
 		"""
-		self._VPRINT("[*]  PychessGame  updating information dictionary ...")
+		VPRINT("[*]  PychessGame  updating information dictionary ...", self._verbose)
 		self._info['FEN']			= self._state.fen()
 		self._info['turn']			= self._state.turn
 		self._info['time-white']	= self._info['time-start'] - (time.time() - self._info['time-prev-move']) + self._info['time-increment'] if not self._info['turn'] else self._info['time-white']
-		self._info['time-black']	= self._info['time-start'] - (time.time() - self._info['time-prev-move']) + self._info['time-increment'] if self._info['turn'] else self._info['time-black']
+		self._info['time-black']	= self._info['time-start'], self._verbose - (time.time() - self._info['time-prev-move']) + self._info['time-increment'] if self._info['turn'] else self._info['time-black']
 		self._info['state-history'].append(self._state)
 		self._info['move-history'].append(move)
-		self._VPRINT("[*]  PychessGame  updating done")
+		VPRINT("[*]  PychessGame  updating done", self._verbose)
 
 
 	def _set_info(self, key, val):
 		""" private func
 		@spec  _set_info(PychessGame, str, *)  =>  bool
 		"""
-		self._VPRINT("[*]  PychessGame  setting information ...")
+		VPRINT("[*]  PychessGame  setting information ...", self._verbose)
 		if key not in self._info.keys():
-			print("[!]  PychessGame  could not set information, key is not present in dictionary ...")
+			print("[!]  PychessGame  could not set information, key is not present in dictionary ...", self._verbose)
 			return False
 		
 		self._info[key] = val
-		self._VPRINT("[*]  PychessGame  setting information done")
+		VPRINT("[*]  PychessGame  setting information done", self._verbose)
 		return True
 
 
@@ -112,10 +106,10 @@ class PychessGame:
 		@spec  _push_move(PychessGame, chess.Move)  =>  bool
 		"""
 		if move in self._legal_moves():
-			self._VPRINT("[*]  PychessGame  pushing move ...")
+			VPRINT("[*]  PychessGame  pushing move ...", self._verbose)
 			self._state.push(move)
 			self._update_info(move)
-			self._VPRINT("[*]  PychessGame  pushing and updating done")
+			VPRINT("[*]  PychessGame  pushing and updating done", self._verbose)
 			return True
 
 
@@ -126,7 +120,7 @@ class PychessGame:
 		""" public func
 		@spec  start_clock(PychessGame)  =>  none
 		"""
-		self._VPRINT("[*]  PychessGame  starting clock")
+		VPRINT("[*]  PychessGame  starting clock", self._verbose)
 		self._info['time-prev-move'] = time.time()
 
 
@@ -134,7 +128,7 @@ class PychessGame:
 		""" public func
 		@spec  get_info(PychessGame)  =>  dict
 		"""
-		self._VPRINT("[*]  PychessGame  getting information")
+		VPRINT("[*]  PychessGame  getting information", self._verbose)
 		return self._info
 
 
@@ -142,7 +136,7 @@ class PychessGame:
 		""" public func
 		@spec  get_state(PychessGame)  =>  chess.Board
 		"""
-		self._VPRINT("[*]  PychessGame  getting state")
+		VPRINT("[*]  PychessGame  getting state", self._verbose)
 		return self._state
 
 
@@ -150,12 +144,33 @@ class PychessGame:
 		""" public func
 		@spec  make_move(PychessGame, chess.Move)  =>  bool
 		"""
-		self._VPRINT("[*]  PychessGame  making move {}".format(move.uci()))
+		VPRINT("[*]  PychessGame  making move {}".format(move.uci()), self._verbose)
 		return self._push_move(move)
 
 
+
+class TestPychessGame(unittest.TestCase):
+	def __init__(self, pg):
+		super().__init__()
+		self._pg = pg
+	
+
+	def test_set_info(self):
+		self.assertFalse(self._pg._set_info('bingbong', 2))
+		self.assertTrue(self._pg._set_info('ai', False))
+
+
+	def test_legal_moves(self):
+		self.assertEqual(type(self._pg._legal_moves()), list)
+
+	
+	def test_push_move(self):
+		self.assertFalse(self._pg._push_move(chess.Move.from_uci('a3b6')))
+		self.assertTrue(self._pg._push_move(chess.Move.from_uci('e2e4')))
+
+
+
 if __name__ == "__main__":
-	pg = PychessGame(white='ulysses', black='beq', verbose=True)
+	pg = PychessGame(2, white='ulysses', black='beq', verbose=True)
 	a = pg.get_info()
 	b = pg.get_state()
-	
