@@ -2,11 +2,12 @@ import os
 import sys
 import argparse
 
-from src.gui import PychessGUI
-from src.cli import PychessCLI
+from src.pychess_gui 	import PychessGUI
+from src.pychess_cli 	import PychessCLI
+from src.pychess_utils	import *
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args():
 	parser = argparse.ArgumentParser(prog='pychess', usage='%(prog)s mode players [options]', 
 						description="pychess arguments for setting running mode and number of players", allow_abbrev=False)
 	parser.add_argument('mode', action='store', type=str,
@@ -21,15 +22,29 @@ def parse_args() -> argparse.Namespace:
 	return args
 
 
-PychessInstance = object
-def shutdown(pychess_instance: PychessInstance) -> None:
-	print("[*]  shutting down pychess instance {}".format(pychess_instance.mode))
+def create(args):
+	players 	= args.players
+	names 		= args.names
+	names		= ['white', 'black'] if names is None else names
+	verbose		= args.verbose
+	mode		= args.mode
+	WPRINT("creating new {} instance".format(mode), "Pychess\t", True)
+	if mode == 'cli':
+		return PychessCLI(players, names, verbose=verbose)
+	elif mode == 'gui':
+		return PychessGUI(players, names, verbose=verbose)
+	EPRINT("invalid mode, use -h for help", "Pychess")
+	sys.exit(0)
+
+
+def shutdown(pychess_instance):
+	WPRINT("shutting down {} instance".format(pychess_instance._mode), "Pychess\t", True)
 	sys.exit(1)
 
 
 if __name__ == "__main__":
 	args = parse_args()
-	pychess_instance = PychessGUI(args.players, args.names, verbose=args.verbose) if args.mode == 'gui' else PychessCLI(args.players, args.names, verbose=args.verbose)
-	pychess_instance.start()
-	shutdown(pychess_instance)
+	mode = create(args)
+	mode.start()
+	shutdown(mode)
 	
