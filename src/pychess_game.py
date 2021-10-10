@@ -1,4 +1,5 @@
 import time
+import math
 import chess
 import unittest
 
@@ -18,7 +19,7 @@ class PychessGame:
 
 	public  funcs:
 		$  PychessGame.start_clock			=>  none
-		$  PychessGame.get_info				=>  dict
+		$  PychessGame.get_info				=>  arbitarry
 		$  PychessGame.get_state			=>	chess.Board
 		$  PychsesGame.make_move			=>  bool
 		$  PychessGame.is_terminal			=>  bool
@@ -77,8 +78,8 @@ class PychessGame:
 		WPRINT("updating information dictionary ...", "PychessGame", self._verbose)
 		self._info['FEN']			= self._state.fen()
 		self._info['turn']			= self._state.turn
-		self._info['time-white']	= self._info['time-start'] - (time.time() - self._info['time-prev-move']) + self._info['time-increment'] if not self._info['turn'] else self._info['time-white']
-		self._info['time-black']	= self._info['time-start'], self._verbose - (time.time() - self._info['time-prev-move']) + self._info['time-increment'] if self._info['turn'] else self._info['time-black']
+		self._info['time-white']	= math.ceil(self._info['time-start'] - (time.time() - self._info['time-prev-move']) + self._info['time-increment'] if not self._info['turn'] else self._info['time-white'])
+		self._info['time-black']	= math.ceil(self._info['time-start'] - (time.time() - self._info['time-prev-move']) + self._info['time-increment'] if self._info['turn'] else self._info['time-black'])
 		self._info['state-history'].append(self._state)
 		self._info['move-history'].append(move)
 		WPRINT("updating done", "PychessGame", self._verbose)
@@ -128,12 +129,12 @@ class PychessGame:
 		self._info['time-prev-move'] = time.time()
 
 
-	def get_info(self):
+	def get_info(self, key):
 		""" public func
-		@spec  get_info(PychessGame)  =>  dict
+		@spec  get_info(PychessGame)  =>  arbitrary
 		"""
 		WPRINT("getting information", "PychessGame", self._verbose)
-		return self._info
+		return self._info[key]
 
 
 	def get_state(self):
@@ -149,7 +150,13 @@ class PychessGame:
 
 	def get_turn(self):
 		return self._info['turn']
-		
+
+
+	def get_prev_move(self):
+		if len(self._info['move-history']) < 1:
+			return ""
+		return self._info['move-history'][-1]
+
 
 	def make_move(self, move):
 		""" public func
@@ -175,7 +182,7 @@ class PychessGame:
 		it returns a chess.Outcome object.
 		"""
 		outcome = self._state.outcome()
-		if outcome is None:
+		if outcome is None and (self.get_info('time-white') > 0) and (self.get_info('time-black') > 0):
 			return False
 		return True
 
