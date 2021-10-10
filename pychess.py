@@ -2,16 +2,16 @@ import os
 import sys
 import argparse
 
-from src.pychess_gui 	import PychessGUI
-from src.pychess_cli 	import PychessCLI
-from src.pychess_utils	import *
+from src.gui 	import PychessGUI
+from src.tui 	import PychessTUI
+from src.utils	import *
 
 
 def parse_args():
 	parser = argparse.ArgumentParser(prog='pychess', usage='%(prog)s mode players [options]', 
 						description="pychess arguments for setting running mode and number of players", allow_abbrev=False)
 	parser.add_argument('mode', action='store', type=str,
-						help='set running mode to either cli or gui')
+						help='set running mode to either TUI or gui')
 	parser.add_argument('players', action='store', type=int,
 						help="set number of players to either 1 or 2")
 	parser.add_argument('-v', '--verbose', action='store_true', 
@@ -29,8 +29,8 @@ def create(args):
 	verbose		= args.verbose
 	mode		= args.mode
 	WPRINT("creating new {} instance".format(mode), "Pychess\t", True)
-	if mode == 'cli':
-		return PychessCLI(players, names, verbose=verbose)
+	if mode == 'tui':
+		return PychessTUI(players, names, verbose=verbose)
 	elif mode == 'gui':
 		return PychessGUI(players, names, verbose=verbose)
 	EPRINT("invalid mode, use -h for help", "Pychess")
