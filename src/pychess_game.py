@@ -5,6 +5,7 @@ import unittest
 from .pychess_utils import *
 
 
+
 class PychessGame:
 	"""!! definition for class  PychessGame
 	used as a main game object in both 'pychess_gui' and 'pychess_cli'
@@ -16,8 +17,11 @@ class PychessGame:
 	may see more key-value pair being added to it as deemed necessary.
 
 	public  funcs:
+		$  PychessGame.start_clock			=>  none
 		$  PychessGame.get_info				=>  dict
-, self._verbose		$  PychessGame.get_state			=>	chess.Board
+		$  PychessGame.get_state			=>	chess.Board
+		$  PychsesGame.make_move			=>  bool
+		$  PychessGame.is_terminal			=>  bool
 
 	private funcs:
 		$  PychessGame._VPRINT				=> 	none
@@ -152,12 +156,22 @@ class PychessGame:
 		for _push_move and thus returns the save bool value. true if 
 		pushing the move was legal/successfull or false if not.
 		"""
-		WPRINT("making move {}".format(move.uci()), "PychessGame", self._verbose)
+		WPRINT("making move {}".format(move.uci()), "PychessGame\t", self._verbose)
 		return self._push_move(move)
 
 
-	def run(self):
-		pass
+	def is_terminal(self):
+		""" public func
+		@spec  is_terminal(PychessGame)  =>  bool
+		func looks at the current state of the board and determines 
+		whether or not the game is terminated, i.e. there is an outcome.
+		_state.outcome() yields None if the game is still going, otherwise
+		it returns a chess.Outcome object.
+		"""
+		outcome = self._state.outcome()
+		if outcome is None:
+			return False
+		return True
 
 
 class TestPychessGame(unittest.TestCase):
@@ -187,6 +201,7 @@ class TestPychessGame(unittest.TestCase):
 	def test_push_move(self):
 		self.assertFalse(self._pg._push_move(chess.Move.from_uci('a3b6')))
 		self.assertTrue(self._pg._push_move(chess.Move.from_uci('e2e4')))
+
 
 
 if __name__ == "__main__":
