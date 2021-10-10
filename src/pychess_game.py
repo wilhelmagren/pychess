@@ -35,9 +35,9 @@ class PychessGame:
 	def __init__(self, players, board=None, verbose=False, **kwargs):
 		self._state 	= chess.Board() if board is None else board
 		self._verbose 	= verbose
-		self._info		= self._init_info(kwargs)
 		self._players 	= players
-		self._ai = None if players == 2 else None
+		self._ai 		= None if players == 2 else None
+		self._info		= self._init_info(kwargs)
 
 
 	def __str__(self):
@@ -135,6 +135,9 @@ class PychessGame:
 	def get_state(self):
 		""" public func
 		@spec  get_state(PychessGame)  =>  chess.Board
+		func simply gets the current state of the chess board from
+		the PychessGame object. _state is wrapping the chess.Board
+		object. 
 		"""
 		VPRINT("[*]  PychessGame  getting state", self._verbose)
 		return self._state
@@ -143,6 +146,11 @@ class PychessGame:
 	def make_move(self, move):
 		""" public func
 		@spec  make_move(PychessGame, chess.Move)  =>  bool
+		func takes a move formatted as a chess.Move object and tries to
+		push it to the move stack, contained in self._state which is 
+		a chess.Board type object. this is basically a wrapper function
+		for _push_move and thus returns the save bool value. true if 
+		pushing the move was legal/successfull or false if not.
 		"""
 		VPRINT("[*]  PychessGame  making move {}".format(move.uci()), self._verbose)
 		return self._push_move(move)
@@ -150,9 +158,18 @@ class PychessGame:
 
 
 class TestPychessGame(unittest.TestCase):
-	def __init__(self, pg):
-		super().__init__()
-		self._pg = pg
+	"""!! definiton for class  TestPychessGame
+	directly inheriting from unittest and overriding .TestCase __init__
+	currently tests three functions from PychessGame class,
+	_set_info
+	_legal_moves
+	_push_moves
+	to make sure that they are correctly implemented in the base class.
+	more test are prone to be written an will update docs in that case.
+	"""
+	def __init__(self, *args, **kwargs):
+		super(TestPychessGame, self).__init__(*args, **kwargs)
+		self._pg = PychessGame(2, white='ulysses', black='beq', verbose=False)
 	
 
 	def test_set_info(self):
@@ -169,8 +186,5 @@ class TestPychessGame(unittest.TestCase):
 		self.assertTrue(self._pg._push_move(chess.Move.from_uci('e2e4')))
 
 
-
 if __name__ == "__main__":
-	pg = PychessGame(2, white='ulysses', black='beq', verbose=True)
-	a = pg.get_info()
-	b = pg.get_state()
+	unittest.main()
