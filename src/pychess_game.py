@@ -147,6 +147,10 @@ class PychessGame:
 		return self._state
 
 
+	def get_turn(self):
+		return self._info['turn']
+		
+
 	def make_move(self, move):
 		""" public func
 		@spec  make_move(PychessGame, chess.Move)  =>  bool
@@ -156,6 +160,8 @@ class PychessGame:
 		for _push_move and thus returns the save bool value. true if 
 		pushing the move was legal/successfull or false if not.
 		"""
+		if type(move) != chess.Move:
+			move = chess.Move.from_uci(move)
 		WPRINT("making move {}".format(move.uci()), "PychessGame\t", self._verbose)
 		return self._push_move(move)
 
