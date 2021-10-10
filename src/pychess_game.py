@@ -2,7 +2,7 @@ import time
 import chess
 import unittest
 
-from pychess_utils import *
+from .pychess_utils import *
 
 
 class PychessGame:
@@ -48,7 +48,7 @@ class PychessGame:
 		""" private func
 		@spec  _init_info(PychessGame, dict)  =>  dict
 		"""
-		VPRINT("[*]  PychessGame  initializing information dictionary ...", self._verbose)
+		WPRINT("initializing information dictionary ...", "PychessGame", self._verbose)
 		infodict = dict()
 		infodict['ai']				= self._ai
 		infodict['FEN']				= self._state.fen()
@@ -63,34 +63,34 @@ class PychessGame:
 		infodict['time-black']		= infodict['time-start']
 		infodict['state-history']	= [self._state]
 		infodict['move-history']	= list()
-		VPRINT("[*]  PychessGame  intialization done", self._verbose)
+		WPRINT("intialization done", "PychessGame", self._verbose)
 		return infodict
 
 	def _update_info(self, move):
 		""" private func
 		@spec  _update_info(PychessGame, chess.Move)  =>  none
 		"""
-		VPRINT("[*]  PychessGame  updating information dictionary ...", self._verbose)
+		WPRINT("updating information dictionary ...", "PychessGame", self._verbose)
 		self._info['FEN']			= self._state.fen()
 		self._info['turn']			= self._state.turn
 		self._info['time-white']	= self._info['time-start'] - (time.time() - self._info['time-prev-move']) + self._info['time-increment'] if not self._info['turn'] else self._info['time-white']
 		self._info['time-black']	= self._info['time-start'], self._verbose - (time.time() - self._info['time-prev-move']) + self._info['time-increment'] if self._info['turn'] else self._info['time-black']
 		self._info['state-history'].append(self._state)
 		self._info['move-history'].append(move)
-		VPRINT("[*]  PychessGame  updating done", self._verbose)
+		WPRINT("updating done", "PychessGame", self._verbose)
 
 
 	def _set_info(self, key, val):
 		""" private func
 		@spec  _set_info(PychessGame, str, *)  =>  bool
 		"""
-		VPRINT("[*]  PychessGame  setting information ...", self._verbose)
+		WPRINT("setting information ...", "PychessGame", self._verbose)
 		if key not in self._info.keys():
 			print("[!]  PychessGame  could not set information, key is not present in dictionary ...", self._verbose)
 			return False
 		
 		self._info[key] = val
-		VPRINT("[*]  PychessGame  setting information done", self._verbose)
+		WPRINT("setting information done", "PychessGame", self._verbose)
 		return True
 
 
@@ -106,10 +106,10 @@ class PychessGame:
 		@spec  _push_move(PychessGame, chess.Move)  =>  bool
 		"""
 		if move in self._legal_moves():
-			VPRINT("[*]  PychessGame  pushing move ...", self._verbose)
+			WPRINT("pushing move ...", "PychessGame", self._verbose)
 			self._state.push(move)
 			self._update_info(move)
-			VPRINT("[*]  PychessGame  pushing and updating done", self._verbose)
+			WPRINT("pushing and updating done", "PychessGame", self._verbose)
 			return True
 
 
@@ -120,7 +120,7 @@ class PychessGame:
 		""" public func
 		@spec  start_clock(PychessGame)  =>  none
 		"""
-		VPRINT("[*]  PychessGame  starting clock", self._verbose)
+		WPRINT("starting clock", "PychessGame", self._verbose)
 		self._info['time-prev-move'] = time.time()
 
 
@@ -128,7 +128,7 @@ class PychessGame:
 		""" public func
 		@spec  get_info(PychessGame)  =>  dict
 		"""
-		VPRINT("[*]  PychessGame  getting information", self._verbose)
+		WPRINT("getting information", "PychessGame", self._verbose)
 		return self._info
 
 
@@ -139,7 +139,7 @@ class PychessGame:
 		the PychessGame object. _state is wrapping the chess.Board
 		object. 
 		"""
-		VPRINT("[*]  PychessGame  getting state", self._verbose)
+		WPRINT("getting state", "PychessGame", self._verbose)
 		return self._state
 
 
@@ -152,9 +152,12 @@ class PychessGame:
 		for _push_move and thus returns the save bool value. true if 
 		pushing the move was legal/successfull or false if not.
 		"""
-		VPRINT("[*]  PychessGame  making move {}".format(move.uci()), self._verbose)
+		WPRINT("making move {}".format(move.uci()), "PychessGame", self._verbose)
 		return self._push_move(move)
 
+
+	def run(self):
+		pass
 
 
 class TestPychessGame(unittest.TestCase):
