@@ -1,3 +1,10 @@
+"""
+Main Pychess module with implemented argparse CLI for
+starting specific game instances.
+
+Author: Wilhelm Ågren, wagren@kth.se
+Last edited: 11-10-2021
+"""
 import os
 import sys
 import argparse
