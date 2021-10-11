@@ -8,7 +8,7 @@ from .utils import *
 
 
 class PychessGame:
-	"""!! definition for class  PychessGame
+	"""!!! definition for class  PychessGame
 	used as a main game object in both 'pychess_gui' and 'pychess_cli'
 	the object is used as a wrapper of the chess board state and also
 	implements necessary helper functions for running the game.
@@ -66,10 +66,12 @@ class PychessGame:
 		infodict['time-increment']	= kwargs.get('increment', DEFAULT_INCREMENT)
 		infodict['time-white']		= infodict['time-start']
 		infodict['time-black']		= infodict['time-start']
+		infodict['time-format']		= self._create_time_format(infodict['time-start'], infodict['time-increment'])
 		infodict['state-history']	= [self._state]
 		infodict['move-history']	= list()
 		WPRINT("intialization done", "PychessGame", self._verbose)
 		return infodict
+
 
 	def _update_info(self, move):
 		""" private func
@@ -98,6 +100,17 @@ class PychessGame:
 		WPRINT("setting information done", "PychessGame", self._verbose)
 		return True
 
+	def _create_time_format(self, t_total, t_incr):
+		""" private func
+		@spec  _create_time_format(PychessGame)  =>  str
+		func takes the current time format in seconds and creates
+		an easy to read string of time format. called when 
+		initializing information dictionary on  __init__
+		"""
+		t_min, t_sec = divmod(t_total, 60)
+		t_format     = "{}:{} +{}".format(t_min, t_sec, t_incr)
+		return t_format
+
 
 	def _legal_moves(self):
 		""" private func
@@ -119,6 +132,10 @@ class PychessGame:
 
 
 		return False
+
+
+	def get_outcome_str(self):
+		return self.get_info('winner')
 
 
 	def start_clock(self):
@@ -181,14 +198,23 @@ class PychessGame:
 		_state.outcome() yields None if the game is still going, otherwise
 		it returns a chess.Outcome object.
 		"""
+		if self.get_info('time-white') <= 0:
+			self._info['winner'] = 'black wins!'
+			return True
+		if self.get_info('time-black') <= 0:
+			self._info['winner'] = 'white wins!'
+			return True
+
 		outcome = self._state.outcome()
-		if outcome is None and (self.get_info('time-white') > 0) and (self.get_info('time-black') > 0):
+		if outcome is None:
 			return False
+		resdict = {'1-0': 'white wins!', '0-1': 'black wins!', '1/2-1/2': 'draw!'}
+		self._info['winner'] = resdict[outcome.result()]
 		return True
 
 
 class TestPychessGame(unittest.TestCase):
-	"""!! definiton for class  TestPychessGame
+	"""!!! definiton for class  TestPychessGame
 	directly inheriting from unittest and overriding .TestCase __init__
 	currently tests three functions from PychessGame class,
 	_set_info
