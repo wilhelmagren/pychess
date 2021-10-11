@@ -1,3 +1,12 @@
+"""
+PychessTUI class implementation for main module Pychess.
+Initialized from pychess main file based on user input
+parsed with argpase CLI. user has to set mode=tui when
+running to start this Terminal User Interface mode.
+
+Author: Wilhelm Ågren, wagren@kth.se
+Last edited: 11-10-2021
+"""
 import curses
 
 from .game 	import PychessGame
@@ -5,7 +14,35 @@ from .utils	import *
 
 
 class PychessTUI:
-	"""
+	"""!!! definition for class  PychessTUI
+	used as Terminal User Interface mode for Pychess. TUI is implemented
+	using a standard library in Python3.9 called 'curses' which allows
+	direct printing (x,y) location on the terminal. see original
+	documentation for more information. the PychessTUI is initialized
+	from Pychess when user directs mode tui on the CLI. this object
+	creates a screen buffer to write to and manages it. main game
+	loop is performed in private function _run and only leaves
+	whenever a game is over, and user doesn't want to play more,
+	or the user issues a SIGINT with ctrl+c. due to the TUI
+	taking up the terminal interface no debug/verbosity printing
+	is available at run time, and is only shown whenever the 
+	initialized curses windows is closed.
+
+	public  funcs:
+		$  PychessTUI.start					=>  none
+
+	private funcs:
+		$  PychessTUI._initscreen			=>	none
+		$  PychessTUI._blit					=>  none
+		$  PychessTUI._blit_quit			=>  none
+		$  PychessTUI._get_and_push_move	=>  none
+		$  PychessTUI._query_new_game		=>  none
+		$  PychessTUI._restart				=>  none
+		$  PychessTUI._run					=>  none
+
+	dunder  funcs:
+		$  PychessTUI.__init__				=>	PychessTUI
+
 	"""
 	def __init__(self, players, names, verbose=False, **kwargs):
 		self._game 		= None
@@ -113,13 +150,18 @@ class PychessTUI:
 
 
 	def _run(self, f_game):
-		self._initscreen() if f_game else None
-		while not self._game.is_terminal():
-			self._blit()
-			self._get_and_push_move()
-		self._query_new_game()
-		WPRINT("game is done, cleaning up and terminating ...", "PychessTUI\t", True)
-		curses.endwin()
+		try:
+			self._initscreen() if f_game else None
+			while not self._game.is_terminal():
+				self._blit()
+				self._get_and_push_move()
+			self._query_new_game()
+			WPRINT("game is done, cleaning up and terminating ...", "PychessTUI\t", True)
+			curses.endwin()
+		except:
+			EPRINT("SIGINT exception in _run, exiting ...", "PychessTUI\t")
+			self._blit_quit()
+			return
 
 
 	def start(self):
