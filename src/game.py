@@ -5,6 +5,7 @@ or from the PychessGUI (Graphical User Interface).
 Run this program as main to perform unittest of local functions.
 
 Author: Wilhelm Ågren, wagren@kth.se
+Last edited: 11-10-2021
 """
 import time
 import math
@@ -41,7 +42,7 @@ class PychessGame:
 		$  PychessGame._legal_moves			=>	list
 		$  PychessGame._push_move			=>	bool
 
-	implemented dunder funcs:
+	dunder  funcs:
 		$  PychessGame.__init__				=>	PychessGame
 		$  PychessGame.__str__	 			=>	str
 
