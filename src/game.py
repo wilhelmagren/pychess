@@ -47,10 +47,10 @@ class PychessGame:
 
 	"""
 	def __init__(self, players, board=None, verbose=False, **kwargs):
-		self._state 	= chess.Board() if board is None else board
-		self._verbose 	= verbose
-		self._players 	= players
-		self._ai 		= None if players == 2 else None
+		self._state		= chess.Board() if board is None else board
+		self._verbose	= verbose
+		self._players	= players
+		self._ai		= None if players == 2 else None
 		self._info		= self._init_info(kwargs)
 
 
@@ -135,7 +135,7 @@ class PychessGame:
 		"""
 		WPRINT("creating time format for info initialization", "PychessGame", self._verbose)
 		t_min, t_sec = divmod(t_total, 60)
-		t_format     = "{}:{} +{}".format(t_min, t_sec, t_incr)
+		t_format = "{}:{} +{}".format(t_min, t_sec, t_incr)
 		return t_format
 
 
