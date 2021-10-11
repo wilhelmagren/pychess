@@ -61,13 +61,13 @@ class PychessTUI:
 		b_m, b_s = divmod(self._game.get_info('time-black'), 60)
 		self._screen.addstr(4, 24, "white time:  {}:{}  ".format(w_m, w_s))
 		self._screen.addstr(5, 24, "black time:  {}:{}  ".format(b_m, b_s))
-		self._screen.addstr(6, 24, "{}".format(WHITE_TO_PLAY if self._game.get_turn() else BLACK_TO_PLAY))
+		self._screen.addstr(6, 24, "{}".format(WHITE_TO_PLAY if self._game.get_info('turn') else BLACK_TO_PLAY))
 		self._screen.addstr(7, 24, "> ")
 		#!!! ===================================
 
 		#!!! draw outcome of game if game is terminal state
 		if self._terminal:
-			self._screen.addstr(10, 24, "GAME OVER: {}".format(self._game.get_outcome_str()))
+			self._screen.addstr(10, 24, "GAME OVER: {}".format(self._game.get_info('winner')))
 			self._screen.addstr(11, 24, "Start a new game? [Y/n]")
 			self._screen.addstr(12, 24, "> ")
 
