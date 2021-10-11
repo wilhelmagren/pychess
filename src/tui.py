@@ -53,6 +53,7 @@ class PychessTUI:
 		self._screen	= None
 		self._clock		= False
 		self._terminal  = False
+		self._stdout	= StdOutWrapper()
 
 
 	def _initscreen(self):
@@ -117,7 +118,8 @@ class PychessTUI:
 		self._screen.clear()
 
 		#!!! draw the goodbye text
-		self._screen.addstr(9, 15, "Thanks for playing Pychess in TUI mode! Bye bye ...")
+		self._screen.addstr(9, 15, "Thanks for playing Pychess using the Terminal User Interface!")
+		self._screen.addstr(10, 15, "                $ sudo rm -rf (Bye bye ...)")
 		self._screen.refresh()
 		curses.napms(2000)
 
@@ -138,7 +140,7 @@ class PychessTUI:
 			# Start a new game
 			self._restart()
 		else:
-			self._blit_quit()
+			self._quit()
 			return
 
 
@@ -149,6 +151,13 @@ class PychessTUI:
 		self._run(False)
 
 
+	def _quit(self):
+		self._stdout.put(ESTRING("SIGINT exception in _run, exiting ...", "PychessTUI\t"))
+		self._blit_quit()
+		curses.endwin()
+		self._stdout.write()
+
+
 	def _run(self, f_game):
 		try:
 			self._initscreen() if f_game else None
@@ -156,19 +165,19 @@ class PychessTUI:
 				self._blit()
 				self._get_and_push_move()
 			self._query_new_game()
-			WPRINT("game is done, cleaning up and terminating ...", "PychessTUI\t", True)
+			self._stdout.put(WSTRING("game is done, cleaning up and terminating ...", "PychessTUI\t", True))
 			curses.endwin()
 		except:
-			EPRINT("SIGINT exception in _run, exiting ...", "PychessTUI\t")
-			self._blit_quit()
+			self._quit()
 			return
 
 
 	def start(self):
 		WPRINT("creating new game instance", "PychessTUI\t", True)
 		try:
-			self._game = PychessGame(players=self._players, verbose=self._verbose, white=self._names[0], black=self._names[1])
+			self._game = PychessGame(players=self._players, verbose=self._verbose, white=self._names[0], black=self._names[1], stdout=self._stdout)
 		except:
-			EPRINT("could not create new game instance, terminating ...", "PychessTUI\t")
+			self._stdout.put(ESTRING("could not create new game instance, terminating ...", "PychessTUI\t"))
+			self._stdout.write()
 			return
 		self._run(True)
