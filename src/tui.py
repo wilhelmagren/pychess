@@ -5,6 +5,8 @@ from .utils	import *
 
 
 class PychessTUI:
+	"""
+	"""
 	def __init__(self, players, names, verbose=False, **kwargs):
 		self._game 		= None
 		self._mode 		= 'tui'

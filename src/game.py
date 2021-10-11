@@ -141,6 +141,7 @@ class PychessGame:
 	def start_clock(self):
 		""" public func
 		@spec  start_clock(PychessGame)  =>  none
+		func 
 		"""
 		WPRINT("starting clock", "PychessGame", self._verbose)
 		self._info['time-prev-move'] = time.time()
@@ -148,7 +149,11 @@ class PychessGame:
 
 	def get_info(self, key):
 		""" public func
-		@spec  get_info(PychessGame)  =>  arbitrary
+		@spec  get_info(PychessGame, str)  =>  arbitrary
+		func looks up the given key argument and returns whatever
+		is found, assumes the user knows what it does, which is 
+		extremely foolish. TODO: implement input checking  and/or
+		default value for returning.
 		"""
 		WPRINT("getting information", "PychessGame", self._verbose)
 		return self._info[key]
