@@ -40,7 +40,7 @@ def create(args):
 		return PychessTUI(players, names, verbose=verbose)
 	elif mode == 'gui':
 		return PychessGUI(players, names, verbose=verbose)
-	EPRINT("invalid mode, use -h for help", "Pychess")
+	EPRINT("invalid mode, use -h for help", "Pychess\t")
 	sys.exit(0)
 
 
