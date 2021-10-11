@@ -26,20 +26,20 @@ class PychessGame:
 	may see more key-value pair being added to it as deemed necessary.
 
 	public  funcs:
-		$  PychessGame.start_clock			=>  none
-		$  PychessGame.get_info				=>  arbitrary
+		$  PychessGame.start_clock			=>	none
+		$  PychessGame.get_info				=>	arbitrary
 		$  PychessGame.get_state			=>	chess.Board
-		$  PychessGame.get_prev_move		=>  chess.Move
-		$  PychsesGame.make_move			=>  bool
-		$  PychessGame.is_terminal			=>  bool
+		$  PychessGame.get_prev_move		=>	chess.Move
+		$  PychsesGame.make_move			=>	bool
+		$  PychessGame.is_terminal			=>	bool
 
 	private funcs:
 		$  PychessGame._init_info			=>	dict
 		$  PychessGame._update_info			=>	none
-		$  PychessGame._set_info			=>  bool
-		$  PychessGame._create_time_format	=>  str
-		$  PychessGame._legal_moves			=>  list
-		$  PychessGame._push_move			=>  bool
+		$  PychessGame._set_info			=>	bool
+		$  PychessGame._create_time_format	=>	str
+		$  PychessGame._legal_moves			=>	list
+		$  PychessGame._push_move			=>	bool
 
 	implemented dunder funcs:
 		$  PychessGame.__init__				=>	PychessGame
