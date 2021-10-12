@@ -68,7 +68,8 @@ class PychessTUI(PychessMode):
         curses.echo()
         height, width = self._screen.getmaxyx()
         if height < 30 or width < 60:
-            self._stdout.EPUT("running in too small terminal, please resize to atleast (60x30)", str(self))
+            self._stdout.EPUT("running in too small terminal, please resize to atleast (30x60)", str(self))
+            curses.endwin()
             raise ValueError
         
         if width  % 2 == 0:
@@ -249,14 +250,20 @@ class PychessTUI(PychessMode):
         """
         try:
             self._initscreen() if f_game else None
+        except ValueError:
+            self._stdout.EPUT("ValueError exception caught in self._initscreen", str(self))
+            self._stdout.WRITE()
+            return
+        try:
+            self._initscreen() if f_game else None
             while not self._game.is_terminal():
                 self._blit()
                 self._get_and_push_move()
             self._query_new_game()
             self._stdout.WPUT("removing instance of self, exiting", str(self), self._verbose)
             curses.endwin()
-        except:
-            self._stdout.EPUT("SIGINT exception in _run, exiting ...", str(self))
+        except KeyboardInterrupt:
+            self._stdout.EPUT("KeyboardInterrupt exception SIGINT caught", str(self))
         self._quit()
 
 
