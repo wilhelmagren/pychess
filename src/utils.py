@@ -57,7 +57,7 @@ class StdOutWrapper:
         of class instance invoking this function and appends
         the message to the buffer as a *error* string.
         """
-        string = "[!]  {}  {}\n".format(msg, tpe)
+        string = "[!]  {}  {}\n".format(tpe, msg)
         self._text += string
 
 
