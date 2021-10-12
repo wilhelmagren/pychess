@@ -37,18 +37,36 @@ class StdOutWrapper:
 
 
     def WPUT(self, msg, tpe, verbose):
+        """ public func
+        @spec  WPUT(StdOutWrapper, str, str, bool)  =>  none
+        func takes a user created message, the type of
+        class instance invoking this function and the
+        verbosity setting of the invoking class.
+        if verbose is true then the message is 
+        appended to the buffer as a *working* string.
+        """
         string = "[*]  {}  {}\n".format(tpe, msg)
         if verbose:
             self._text += string
 
 
     def EPUT(self, msg, tpe):
+        """ public func
+        @spec  EPUT(StdOutWrapper, str, str)  =>  none
+        func takes a user created error message, the type
+        of class instance invoking this function and appends
+        the message to the buffer as a *error* string.
+        """
         string = "[!]  {}  {}\n".format(msg, tpe)
         self._text += string
 
 
     def WRITE(self):
-        """
+        """ public func
+        @spec  WRITE(StdOutWrapper)  =>  none
+        func writes every line of text in the buffer to the
+        standard output, i.e. print, if nothing else is 
+        specified. strips final newlines from buffer.
         """
         rows = self._text.split("\n")
         for row_idx, row in enumerate(rows):
