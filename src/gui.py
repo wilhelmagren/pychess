@@ -11,7 +11,7 @@ from .utils     import *
 
 class PychessGUI(PychessMode):
     def __init__(self, players, names, verbose=False, **kwargs):
-        super().__init__(players, names, verbose=verbose, mode='gui')
+        super().__init__(players, names, verbose=verbose, mode='PychessGUI')
 
 
     def start(self):
