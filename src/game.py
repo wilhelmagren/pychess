@@ -35,8 +35,6 @@ class PychessGame:
         $  PychessGame.is_terminal              =>  bool
 
     private funcs:
-        $  PychessGame._wprint                  =>  none
-        $  PychessGame._eprint                  =>  none
         $  PychessGame._init_info               =>  dict
         $  PychessGame._update_info             =>  none
         $  PychessGame._set_info                =>  bool
@@ -59,36 +57,7 @@ class PychessGame:
 
 
     def __str__(self):
-        return str(self._state)
-
-
-    def _wprint(self, msg, tpe, verbose):
-        """ private func
-        @spec  _wprint(PychessGame, str, str, bool)  =>  none
-        func takes a message, the instance type invoking the function
-        and a boolean for verbose print, and either prints it using
-        .utils func WPRINT or adds the intended message to the 
-        buffer of _stdout. buffer wrapper only used for TUI instances.
-        """
-        if self._stdout is None:
-            WPRINT(msg, tpe, verbose)
-            return
-        self._stdout.put(WSTRING(msg, tpe, verbose))
-
-
-    def _eprint(self, msg, tpe):
-        """ private func
-        @spec  _eprint(PychessGame, str, str)  =>  none
-        func takes a message, the instance type invoking the function,
-        and prints the error message directly if the PychessGame instance
-        is invoked from a GUI instance. in the other case it is stored
-        to the wrapper of _stdout buffer to be printed when the 
-        curses module allows it (after window closing).
-        """
-        if self._stdout is None:
-            EPRINT(msg, tpe)
-            return
-        self._stdout.put(ESTRING(msg, tpe))
+        return "PychessGame"  
 
 
     def _init_info(self, kwargs):
@@ -101,7 +70,7 @@ class PychessGame:
         is being created in __init__, and the dictionary is 
         returned to become a local object attribute.
         """
-        self._wprint("initializing information dictionary ...", "PychessGame", self._verbose)
+        self._stdout.WPUT("initializing information dictionary ...", str(self), self._verbose)
         infodict = dict()
         infodict['ai']              = self._ai
         infodict['FEN']             = self._state.fen()
@@ -117,7 +86,7 @@ class PychessGame:
         infodict['time-format']     = self._create_time_format(infodict['time-start'], infodict['time-increment'])
         infodict['state-history']   = [self._state]
         infodict['move-history']    = list()
-        self._wprint("intialization done", "PychessGame", self._verbose)
+        self._stdout.WPUT("intialization done", str(self), self._verbose)
         return infodict
 
 
@@ -131,14 +100,14 @@ class PychessGame:
         state-history, move-history of the local attribute
         information dictionary.
         """
-        self._wprint("updating information dictionary ...", "PychessGame", self._verbose)
+        self._stdout.WPUT("updating information dictionary ...", str(self), self._verbose)
         self._info['FEN']           = self._state.fen()
         self._info['turn']          = self._state.turn
         self._info['time-white']    = math.ceil(self._info['time-start'] - (time.time() - self._info['time-prev-move']) + self._info['time-increment'] if not self._info['turn'] else self._info['time-white'])
         self._info['time-black']    = math.ceil(self._info['time-start'] - (time.time() - self._info['time-prev-move']) + self._info['time-increment'] if self._info['turn'] else self._info['time-black'])
         self._info['state-history'].append(self._state)
         self._info['move-history'].append(move)
-        self._wprint("updating done", "PychessGame", self._verbose)
+        self._stdout.WPUT("updating done", str(self), self._verbose)
 
 
     def _set_info(self, key, val):
@@ -149,13 +118,13 @@ class PychessGame:
         a valid key for the dictionary. the function returns true if the 
         setting operation was legal/successfull, false if not.
         """
-        self._wprint("setting information ...", "PychessGame", self._verbose)
+        self._stdout.WPUT("setting information ...", str(self), self._verbose)
         if key not in self._info.keys():
-            self._eprint("could not set information, invalid key", "PychessGame")
+            self._stdout.EPUT("could not set information, invalid key", str(self))
             return False
 
         self._info[key] = val
-        self._wprint("setting information done", "PychessGame", self._verbose)
+        self._stdout.WPUT("setting information done", str(self), self._verbose)
         return True
 
 
@@ -166,7 +135,7 @@ class PychessGame:
         an easy to read string of time format. called when 
         initializing information dictionary on  __init__
         """
-        self._wprint("creating time format for info initialization", "PychessGame", self._verbose)
+        self._stdout.WPUT("creating time format for info initialization", str(self), self._verbose)
         t_min, t_sec = divmod(t_total, 60)
         t_format = "{}:{} +{}".format(t_min, t_sec, t_incr)
         return t_format
@@ -178,7 +147,7 @@ class PychessGame:
         func simply generates a list of legal chess.Move objects
         for the current board state. no pseudo-legal moves allowed!
         """
-        self._wprint("generating legal moves", "PychessGame", self._verbose)
+        self._stdout.WPUT("generating legal moves", str(self), self._verbose)
         return list(self._state.legal_moves)
 
 
@@ -191,13 +160,13 @@ class PychessGame:
         calculated and new player turn is set etc.
         """
         if move in self._legal_moves():
-            self._wprint("pushing move {}".format(move.uci()), "PychessGame", self._verbose)
+            self._stdout.WPUT("pushing move {}".format(move.uci()), str(self), self._verbose)
             self._state.push(move)
             self._update_info(move)
-            self._wprint("pushing and updating done", "PychessGame", self._verbose)
+            self._stdout.WPUT("pushing and updating done", str(self), self._verbose)
             return True
 
-        self._wprint("got illegal move from user", "PychessGame", self._verbose)
+        self._stdout.EPUT("got illegal move from user", str(self))
         return False
 
 
@@ -208,7 +177,7 @@ class PychessGame:
         info dictionary to the current time. this is done to 
         start the time counting from after the first move is made.
         """
-        self._wprint("starting clock", "PychessGame", self._verbose)
+        self._stdout.WPUT("starting clock", str(self), self._verbose)
         self._info['time-prev-move'] = time.time()
 
 
@@ -220,7 +189,7 @@ class PychessGame:
         extremely foolish. TODO: implement input checking  and/or
         default value for returning.
         """
-        self._wprint("getting information", "PychessGame", self._verbose)
+        self._stdout.WPUT("getting information", str(self), self._verbose)
         return self._info[key]
 
 
@@ -234,7 +203,7 @@ class PychessGame:
         of the game class is to make sure the correct state is
         being passed around.
         """
-        self._wprint("getting state", "PychessGame", self._verbose)
+        self._stdout.WPUT("getting state", str(self), self._verbose)
         return self._state
 
 
@@ -247,27 +216,34 @@ class PychessGame:
         the returned values of this function have to be handled 
         as it might return if there is not move made yet ...
         """
-        self._wprint("getting previous move", "PychessGame", self._verbose)
+        self._stdout.WPUT("getting previous move", str(self), self._verbose)
         if len(self._info['move-history']) < 1:
-            self._wprint("no previous move found", "PychessGame", self._verbose)
+            self._stdout.WPUT("no previous move found", str(self), self._verbose)
             return ""
         move = self._info['move-history'][-1]
-        self._wprint("returning previous move {}".format(move.uci()), "PychessGame", self._verbose)
+        self._stdout.WPUT("returning previous move {}".format(move.uci()), str(self), self._verbose)
         return move
 
 
     def make_move(self, move):
         """ public func
-        @spec  make_move(PychessGame, chess.Move)  =>  bool
-        func takes a move formatted as a chess.Move object and tries to
+        @spec  make_move(PychessGame, str)  =>  bool
+        func takes a move as a formatted string and tries to
         push it to the move stack, contained in self._state which is 
         a chess.Board type object. this is basically a wrapper function
         for _push_move and thus returns the save bool value. true if 
         pushing the move was legal/successfull or false if not.
         """
+        if len(move) != 4:
+            self._stdout.EPUT("got faulty move input from user", str(self))
+            return False
+        for char in move:
+            if char in "ABCDEFGHIJKLMNOPQRSTUVWXYZÅÄÖijklmnopqrstuvwxyzåäö90/,;.:-_'*¨^~`´\\?+=})]([/{&%€¤$#£\"@!§½":
+                self._stdout.EPUT("got faulty move input from user", str(self))
+                return False
         if type(move) != chess.Move:
             move = chess.Move.from_uci(move)
-        self._wprint("making move {}".format(move.uci()), "PychessGame", self._verbose)
+        self._stdout.WPUT("making move {}".format(move.uci()), str(self), self._verbose)
         return self._push_move(move)
 
 
@@ -280,11 +256,11 @@ class PychessGame:
         it returns a chess.Outcome object.
         """
         if self.get_info('time-white') <= 0:
-            self._wprint("game is terminal, black won on time", "PychessGame", self._verbose)
+            self._stdout.WPUT("game is terminal, black won on time", str(self), self._verbose)
             self._info['winner'] = 'black wins!'
             return True
         if self.get_info('time-black') <= 0:
-            self._wprint("game is terminal, white won on time", "PychessGame", self._verbose)
+            self._stdout.WPUT("game is terminal, white won on time", str(self), self._verbose)
             self._info['winner'] = 'white wins!'
             return True
 
@@ -293,7 +269,7 @@ class PychessGame:
             return False
         resdict = {'1-0': 'white wins!', '0-1': 'black wins!', '1/2-1/2': 'draw!'}
         self._info['winner'] = resdict[outcome.result()]
-        self._wprint("game is terminal, either checkmate or draw/stalemate", "PychessGame", self._verbose)
+        self._stdout.WPUT("game is terminal, either checkmate or draw/stalemate", str(self), self._verbose)
         return True
 
 
