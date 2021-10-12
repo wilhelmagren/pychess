@@ -51,7 +51,7 @@ class PychessTUI(PychessMode):
 
     """
     def __init__(self, players, names, verbose=False, **kwargs):
-        super().__init__(players, names, verbose=verbose, mode='tui')
+        super().__init__(players, names, verbose=verbose, mode='PychessTUI')
         self._screen    = None
         self._screendic = dict()
         self._stdout    = StdOutWrapper()
@@ -63,11 +63,12 @@ class PychessTUI(PychessMode):
         @spec  _initscreen(PychessTUI)  =>  none
 
         """
+        self._stdout.WPUT("initializing screen with curses", str(self), self._verbose)
         self._screen = curses.initscr()
         curses.echo()
         height, width = self._screen.getmaxyx()
         if height < 30 or width < 60:
-            EPRINT("running in too small terminal, please resize to atleast (60x30)", "PychessTUI")
+            self._stdout.EPUT("running in too small terminal, please resize to atleast (60x30)", str(self))
             raise ValueError
         
         if width  % 2 == 0:
@@ -90,6 +91,7 @@ class PychessTUI(PychessMode):
         self._screendic['query-move']   = (self._screendic['mid-height'] - 3, self._screendic['mid-width'] + 2)
         self._screendic['player-names'] = (self._screendic['mid-height'] - self._screendic['board-height'] - 2, self._screendic['mid-width'] - self._screendic['board-width'])
         self._screendic['quitting']     = (self._screendic['mid-height'], self._screendic['mid-width'] - 30)
+        self._stdout.WPUT("done initializing screen", str(self), self._verbose)
 
 
     def _blit(self):
@@ -103,6 +105,7 @@ class PychessTUI(PychessMode):
         then the player(s) will be queried if they
         want to play another game [Y/n].
         """
+        self._stdout.WPUT("writing to screen", str(self), self._verbose)
         #!!! reset the screen
         self._screen.clear()
 
@@ -154,6 +157,7 @@ class PychessTUI(PychessMode):
         game after terminal outcome, or user issues
         SIGINT, i.e. CTRL+C when running the application.
         """
+        self._stdout.WPUT("writing termination message to screen", str(self), self._verbose)
         #!!! reset the screen
         self._screen.clear()
 
@@ -173,11 +177,14 @@ class PychessTUI(PychessMode):
         if there is no move made yet then the clock is off,
         false, and thus we have to start it.
         """
+        self._stdout.WPUT("getting user move", str(self), self._verbose)
         q_y, q_x = self._screendic['query-move']
         move = self._screen.getstr(q_y, q_x + 2).decode()
         if self._clock is False:
+            self._stdout.WPUT("starting the game clock", str(self), self._verbose)
             self._game.start_clock()
             self._clock = True
+        self._stdout.WPUT("trying to push user move ...", str(self), self._verbose)
         self._game.make_move(move) 
 
 
@@ -189,6 +196,7 @@ class PychessTUI(PychessMode):
         PychessGame object is reinitialized for 
         cleaning up all put values.
         """
+        self._stdout.WPUT("quering user for new game [Y/n]?", str(self), self._verbose)
         self._terminal = True
         self._blit()
         q_y, q_x = self._screendic['query-move']
@@ -208,7 +216,8 @@ class PychessTUI(PychessMode):
         if user queries it. only called from
         _query_new_game
         """
-        self._game      = PychessGame(players=self._players, verbose=self._verbose, white=self._names[0], black=self._names[1], time=self._kwargs.get('time'), increment=self._kwargs.get('increment'))
+        self._stdout.WPUT("creating new game instance and restarting", str(self), self._verbose)
+        self._game = PychessGame(players=self._players, verbose=self._verbose, white=self._kwargs.get('white'), black=self._kwargs.get('black'), stdout=self._stdout, time=self._kwargs.get('time'), increment=self._kwargs.get('increment'))
         self._clock     = False
         self._terminal  = False
         self._run(False)
@@ -223,9 +232,10 @@ class PychessTUI(PychessMode):
         stdoutwrapper buffer to the terminal
         once the window is terminated.
         """
+        self._stdout.WPUT("quitting the program", str(self), self._verbose)
         self._blit_quit()
         curses.endwin()
-        self._stdout.write()
+        self._stdout.WRITE()
 
 
     def _run(self, f_game):
@@ -243,10 +253,10 @@ class PychessTUI(PychessMode):
                 self._blit()
                 self._get_and_push_move()
             self._query_new_game()
-            self._stdout.put(WSTRING("game is done, cleaning up and terminating ...", "PychessTUI\t", True))
+            self._stdout.WPUT("removing instance of self, exiting", str(self), self._verbose)
             curses.endwin()
         except:
-            self._stdout.put(ESTRING("SIGINT exception in _run, exiting ...", "PychessTUI\t"))
+            self._stdout.EPUT("SIGINT exception in _run, exiting ...", str(self))
         self._quit()
 
 
@@ -260,11 +270,11 @@ class PychessTUI(PychessMode):
         terminate the program. no retrying is made here,
         user will have to restart program and try again.
         """
-        WPRINT("creating new game instance", "PychessTUI\t", True)
+        self._stdout.WPUT("creating new game instance", str(self), self._verbose)
         try:
-            self._game = PychessGame(players=self._players, verbose=self._verbose, white=self._names[0], black=self._names[1], stdout=self._stdout, time=self._kwargs.get('time'), increment=self._kwargs.get('increment'))
+            self._game = PychessGame(players=self._players, verbose=self._verbose, white=self._kwargs.get('white'), black=self._kwargs.get('black'), stdout=self._stdout, time=self._kwargs.get('time'), increment=self._kwargs.get('increment'))
         except:
-            self._stdout.put(ESTRING("could not create new game instance, terminating ...", "PychessTUI\t"))
-            self._stdout.write()
+            self._stdout.EPUT("could not create new game instance, exiting ...", str(self))
+            self._stdout.WRITE()
             return
         self._run(True)
