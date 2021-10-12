@@ -12,35 +12,39 @@ BLACK_TO_PLAY		= "Blacks move: "
 
 
 class StdOutWrapper:
-	"""
-	"""
-	def __init__(self):
-		self._text = ""
+    """
+    ye this is the stdoutwrapper
+    """
+    def __init__(self):
+        self._text = ""
 
-	def put(self, msg):
-		"""
-		"""
-		self._text += "\n" + msg
+    def put(self, msg):
+        """
+        """
+        if msg is None:
+            return
+        self._text += msg + "\n"
 
-	def write(self):
-		"""
-		"""
-		for row in self._text.split("\n"):
-			print(row)
+    def write(self):
+        """
+        """
+        rows = self._text.split("\n")
+        for row_idx, row in enumerate(rows):
+            print(row) if row_idx != len(rows) - 1 else None
 
 
 """
 """
 def WSTRING(msg, tpe, verbose):
-	return "[*]  {}  {}".format(tpe, msg) if verbose else None
+    return "[*]  {}  {}".format(tpe, msg) if verbose else None
 
 
 def WPRINT(msg, tpe, verbose):
-	print("[*]  {}  {}".format(tpe, msg)) if verbose else None
+    print("[*]  {}  {}".format(tpe, msg)) if verbose else None
 
 
 def ESTRING(msg, tpe):
-	return "[!]  {}  {}".format(tpe, msg)
+    return "[!]  {}  {}".format(tpe, msg)
 
 def EPRINT(msg, tpe):
-	print("[!]  {}  {}".format(tpe, msg))
+    print("[!]  {}  {}".format(tpe, msg))

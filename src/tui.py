@@ -4,7 +4,7 @@ Initialized from pychess main file based on user input
 parsed with argpase CLI. user has to set mode=tui when
 running to start this Terminal User Interface mode.
 
-Author: Wilhelm Ågren, wagren@kth.se
+Author: Wilhelm Aagren, wagren@kth.se
 Last edited: 11-10-2021
 """
 import curses
@@ -52,9 +52,11 @@ class PychessTUI:
         self._names     = names
         self._verbose   = verbose
         self._screen    = None
+        self._screendic = dict()
         self._clock     = False
         self._terminal  = False
         self._stdout    = StdOutWrapper()
+        self._kwargs    = kwargs
 
 
     def _initscreen(self):
@@ -64,6 +66,31 @@ class PychessTUI:
         """
         self._screen = curses.initscr()
         curses.echo()
+        height, width = self._screen.getmaxyx()
+        if height < 30 or width < 60:
+            EPRINT("running in too small terminal, please resize to atleast (60x30)", "PychessTUI")
+            raise ValueError
+        
+        if width  % 2 == 0:
+            width -= 1
+        if height % 2 == 0:
+            height -= 1
+
+        self._screendic['width']        = width
+        self._screendic['height']       = height
+        self._screendic['mid-width']    = 1 + width  // 2
+        self._screendic['mid-height']   = 1 + height // 2
+        self._screendic['board-width']  = 15
+        self._screendic['board-height'] = 8
+        self._screendic['board-start']  = (self._screendic['mid-height'] - self._screendic['board-height'], self._screendic['mid-width'] - self._screendic['board-width'])
+        self._screendic['prev-move']    = (self._screendic['mid-height'] + 1, self._screendic['mid-width'] - self._screendic['board-width'])
+        self._screendic['time-format']  = (self._screendic['mid-height'] + 2, self._screendic['mid-width'] - self._screendic['board-width'])
+        self._screendic['white-time']   = (self._screendic['mid-height'] - 6, self._screendic['mid-width'] + 2)
+        self._screendic['black-time']   = (self._screendic['mid-height'] - 5, self._screendic['mid-width'] + 2)
+        self._screendic['to_move']      = (self._screendic['mid-height'] - 4, self._screendic['mid-width'] + 2)
+        self._screendic['query-move']   = (self._screendic['mid-height'] - 3, self._screendic['mid-width'] + 2)
+        self._screendic['player-names'] = (self._screendic['mid-height'] - self._screendic['board-height'] - 2, self._screendic['mid-width'] - self._screendic['board-width'])
+        self._screendic['quitting']     = (self._screendic['mid-height'], self._screendic['mid-width'] - 30)
 
 
     def _blit(self):
@@ -75,48 +102,43 @@ class PychessTUI:
         self._screen.clear()
 
         #!!! draw the board state 
-        # starting  at  ( 2,  2)
-        # stretching to (10, 16)
+        b_y, b_x = self._screendic['board-start']
         for y, row in enumerate(str(self._game.get_state()).split("\n")):
-            self._screen.addstr(2+y, 3, row)
-        #!!! ===================================
-
-        #!!! draw the borders of the board state 
-        for y in range(2, 11):
-            self._screen.addstr(y,  2, "|")
-            self._screen.addstr(y, 18, "|")
-        for x in range(3, 18):
-            self._screen.addstr(1,  x, "_")
-            self._screen.addstr(10, x, "_")
-        self._screen.addstr( 1,  2, "_")
-        self._screen.addstr( 1, 18, "_")
-        self._screen.addstr(10,  2, "|")
-        self._screen.addstr(10, 18, "|")
-        #!!! ===================================
+            self._screen.addstr(b_y + y, b_x, row)
 
         #!!! draw the previous move
-        prev_move 	= self._game.get_prev_move()
-        self._screen.addstr(12, 1, "previous move: {}".format(prev_move if type(prev_move) == str else prev_move.uci()))
-        #!!! ===================================
+        prev_move = self._game.get_prev_move()
+        p_y, p_x = self._screendic['prev-move']
+        self._screen.addstr(p_y, p_x, "previous move: {}".format(prev_move if type(prev_move) == str else prev_move.uci()))
 
         #!!! draw the time format
-        self._screen.addstr(13, 1, "time format: " + self._game.get_info('time-format'))
-        #!!! ===================================
+        t_y, t_x = self._screendic['time-format']
+        self._screen.addstr(t_y, t_x, "time format: " + self._game.get_info('time-format'))
 
         #!!! draw the player times
         w_m, w_s = divmod(self._game.get_info('time-white'), 60)
         b_m, b_s = divmod(self._game.get_info('time-black'), 60)
-        self._screen.addstr(4, 24, "white time:  {}:{}  ".format(w_m, w_s))
-        self._screen.addstr(5, 24, "black time:  {}:{}  ".format(b_m, b_s))
-        self._screen.addstr(6, 24, "{}".format(WHITE_TO_PLAY if self._game.get_info('turn') else BLACK_TO_PLAY))
-        self._screen.addstr(7, 24, "> ")
-        #!!! ===================================
+        wt_y, wt_x = self._screendic['white-time']
+        bt_y, bt_x = self._screendic['black-time']
+        self._screen.addstr(wt_y, wt_x, "white time:  {}:{}  ".format(w_m, w_s))
+        self._screen.addstr(bt_y, bt_x, "black time:  {}:{}  ".format(b_m, b_s))
+        m_y, m_x = self._screendic['query-move']
+        self._screen.addstr(m_y, m_x, "> ")
+      
+        #!!! draw the player names
+        n_y, n_x = self._screendic['player-names']
+        name1, name2 = self._game.get_info('white'), self._game.get_info('black')
+        print(n_y, n_x, name1, name2)
+        self._screen.addstr(n_y, n_x, "(W) {}  vs  (B) {}".format(name1, name2))
 
         #!!! draw outcome of game if game is terminal state
         if self._terminal:
-            self._screen.addstr(10, 24, "GAME OVER: {}".format(self._game.get_info('winner')))
-            self._screen.addstr(11, 24, "Start a new game? [Y/n]")
-            self._screen.addstr(12, 24, "> ")
+            self._screen.addstr(n_y - 1, n_x, "GAME OVER: {}".format(self._game.get_info('winner')))
+
+            self._screen.addstr(bt_y + 1, bt_x, "Start a new game? [Y/n]")
+        else:
+            self._screen.addstr(bt_y + 1, bt_x, "{}".format(WHITE_TO_PLAY if self._game.get_info('turn') else BLACK_TO_PLAY))
+           
 
 
         self._screen.refresh()
@@ -131,10 +153,11 @@ class PychessTUI:
         self._screen.clear()
 
         #!!! draw the goodbye text
-        self._screen.addstr(9, 15, "Thanks for playing Pychess using the Terminal User Interface!")
-        self._screen.addstr(10, 15, "                $ sudo rm -rf (Bye bye ...)")
+        t_y, t_x = self._screendic['quitting']
+        self._screen.addstr(t_y - 5, t_x, "Thanks for playing Pychess using the Terminal User Interface!")
+        self._screen.addstr(t_y - 4, t_x, "                    $ sudo rm -rf")
         self._screen.refresh()
-        curses.napms(2000)
+        curses.napms(3000)
 
 
     def _get_and_push_move(self):
@@ -142,7 +165,8 @@ class PychessTUI:
         @spec  _get_and_push_move(PychessTUI)  =>  none
 
         """
-        move = self._screen.getstr(7, 26).decode()
+        q_y, q_x = self._screendic['query-move']
+        move = self._screen.getstr(q_y, q_x + 2).decode()
         if self._clock is False:
             self._game.start_clock()
             self._clock = True
@@ -156,7 +180,8 @@ class PychessTUI:
         """
         self._terminal = True
         self._blit()
-        resp = self._screen.getstr(12, 27).decode()
+        q_y, q_x = self._screendic['query-move']
+        resp = self._screen.getstr(q_y, q_x + 2).decode()
         if resp == 'Y':
             # Start a new game
             self._restart()
@@ -170,7 +195,7 @@ class PychessTUI:
         @spec  _restart(PychessTUI)  =>  none
 
         """
-        self._game      = PychessGame(players=self._players, verbose=self._verbose, white=self._names[0], black=self._names[1])
+        self._game      = PychessGame(players=self._players, verbose=self._verbose, white=self._names[0], black=self._names[1], time=self._kwargs.get('time'), increment=self._kwargs.get('increment'))
         self._clock     = False
         self._terminal  = False
         self._run(False)
@@ -181,7 +206,6 @@ class PychessTUI:
         @spec  _quit(PychessTUI)  =>  none
 
         """
-        self._stdout.put(ESTRING("SIGINT exception in _run, exiting ...", "PychessTUI\t"))
         self._blit_quit()
         curses.endwin()
         self._stdout.write()
@@ -201,7 +225,8 @@ class PychessTUI:
             self._stdout.put(WSTRING("game is done, cleaning up and terminating ...", "PychessTUI\t", True))
             curses.endwin()
         except:
-            self._quit()
+            self._stdout.put(ESTRING("SIGINT exception in _run, exiting ...", "PychessTUI\t"))
+        self._quit()
         return
 
 
@@ -211,7 +236,7 @@ class PychessTUI:
         """
         WPRINT("creating new game instance", "PychessTUI\t", True)
         try:
-            self._game = PychessGame(players=self._players, verbose=self._verbose, white=self._names[0], black=self._names[1], stdout=self._stdout)
+            self._game = PychessGame(players=self._players, verbose=self._verbose, white=self._names[0], black=self._names[1], stdout=self._stdout, time=self._kwargs.get('time'), increment=self._kwargs.get('increment'))
         except:
             self._stdout.put(ESTRING("could not create new game instance, terminating ...", "PychessTUI\t"))
             self._stdout.write()
