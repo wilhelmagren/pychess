@@ -91,7 +91,13 @@ class PychessTUI(PychessMode):
     def _blit(self):
         """ private func
         @spec  _blit(PychessTUI)  =>  none
-
+        func puts the game state, player times etc.
+        on to the screen using self._screen and 
+        curses library. two possible states for
+        blitting to the screen: either chess.Board
+        is terminal, or it is not. if it is terminal
+        then the player(s) will be queried if they
+        want to play another game [Y/n].
         """
         #!!! reset the screen
         self._screen.clear()
@@ -128,12 +134,9 @@ class PychessTUI(PychessMode):
         #!!! draw outcome of game if game is terminal state
         if self._terminal:
             self._screen.addstr(n_y - 1, n_x, "GAME OVER: {}".format(self._game.get_info('winner')))
-
             self._screen.addstr(bt_y + 1, bt_x, "Start a new game? [Y/n]")
         else:
             self._screen.addstr(bt_y + 1, bt_x, "{}".format(WHITE_TO_PLAY if self._game.get_info('turn') else BLACK_TO_PLAY))
-           
-
 
         self._screen.refresh()
         curses.napms(100)
@@ -141,7 +144,11 @@ class PychessTUI(PychessMode):
     def _blit_quit(self):
         """ private func
         @spec  _blit_quit(PychessTUI)  =>  none
-
+        func draws the quitting information to the screen
+        using the curses library and self._screen
+        only happens if user doesn't want to play another 
+        game after terminal outcome, or user issues
+        SIGINT, i.e. CTRL+C when running the application.
         """
         #!!! reset the screen
         self._screen.clear()
@@ -157,7 +164,10 @@ class PychessTUI(PychessMode):
     def _get_and_push_move(self):
         """ private func
         @spec  _get_and_push_move(PychessTUI)  =>  none
-
+        func reads a string from the user and tries
+        to push it to the chess.Board if it is legal.
+        if there is no move made yet then the clock is off,
+        false, and thus we have to start it.
         """
         q_y, q_x = self._screendic['query-move']
         move = self._screen.getstr(q_y, q_x + 2).decode()
@@ -170,7 +180,10 @@ class PychessTUI(PychessMode):
     def _query_new_game(self):
         """ private func
         @spec  _query_new_game(PychessTUI)  =>  none
-
+        func queries the user for playing a new game,
+        either [Y/n], in which case the entire
+        PychessGame object is reinitialized for 
+        cleaning up all put values.
         """
         self._terminal = True
         self._blit()
@@ -187,7 +200,9 @@ class PychessTUI(PychessMode):
     def _restart(self):
         """ private func
         @spec  _restart(PychessTUI)  =>  none
-
+        func simply restarts the chess.Board game
+        if user queries it. only called from
+        _query_new_game
         """
         self._game      = PychessGame(players=self._players, verbose=self._verbose, white=self._names[0], black=self._names[1], time=self._kwargs.get('time'), increment=self._kwargs.get('increment'))
         self._clock     = False
@@ -198,7 +213,11 @@ class PychessTUI(PychessMode):
     def _quit(self):
         """ private func
         @spec  _quit(PychessTUI)  =>  none
-
+        func blits the quitting information to 
+        the screen and terminates the initialized
+        curses window instance. flushes the 
+        stdoutwrapper buffer to the terminal
+        once the window is terminated.
         """
         self._blit_quit()
         curses.endwin()
@@ -208,7 +227,11 @@ class PychessTUI(PychessMode):
     def _run(self, f_game):
         """ private func
         @spec  _run(PychessTUI, bool)  =>  none
-
+        func is the main running loop for the game.
+        handles looping until terminal game, and
+        then queries the user for a new game or 
+        termination. any exception in this function
+        is catched and will cause the program to quit.
         """
         try:
             self._initscreen() if f_game else None
@@ -221,12 +244,17 @@ class PychessTUI(PychessMode):
         except:
             self._stdout.put(ESTRING("SIGINT exception in _run, exiting ...", "PychessTUI\t"))
         self._quit()
-        return
 
 
     def start(self):
         """ public func
         @spec  start(PychessTUI)  =>  none
+        func is called from main running file
+        (pychess.py) if the user has requested a
+        TUI instance. if PychessGame throws any exception
+        when initializing the function will catch it and
+        terminate the program. no retrying is made here,
+        user will have to restart program and try again.
         """
         WPRINT("creating new game instance", "PychessTUI\t", True)
         try:
