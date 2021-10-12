@@ -1,6 +1,20 @@
 """
 Main Pychess module with implemented argparse CLI for
-starting specific game instances.
+starting specific game instances. Either run the 
+application in Terminal User Interface (TUI) or
+Graphical User Interface (GUI) mode. This has to
+be specified when starting the program from the 
+command line, together with how many players are
+going to be playing. An example of running the 
+program, without running in /bin/bash, is:
+
+kali@kali:~$ python3 pychess tui 2 --verbose --time 300 --increment 15 --names ulysses tux
+
+to have two players playing in TUI mode with 5min time 
+format, 15s increment, and player names are 
+white: ulysses, black: tux. the double dash (--) 
+CLI options are optionals, hence the name, but the mode
+and number of players is required.
 
 Author: Wilhelm Ågren, wagren@kth.se
 Last edited: 11-10-2021
