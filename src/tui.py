@@ -46,15 +46,15 @@ class PychessTUI:
 
     """
     def __init__(self, players, names, verbose=False, **kwargs):
-        self._game 		= None
-        self._mode 		= 'tui'
-        self._players 	= players
-        self._names		= names
-        self._verbose 	= verbose
-        self._screen	= None
-        self._clock		= False
+        self._game      = None
+        self._mode      = 'tui'
+        self._players   = players
+        self._names     = names
+        self._verbose   = verbose
+        self._screen    = None
+        self._clock     = False
         self._terminal  = False
-        self._stdout	= StdOutWrapper()
+        self._stdout    = StdOutWrapper()
 
 
     def _initscreen(self):
