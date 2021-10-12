@@ -17,6 +17,10 @@ from .utils	import *
 
 class PychessTUI(PychessMode):
     """!!! definition for class  PychessTUI
+    class directly inherits from mother PychessMode which wraps all
+    generic game information attributes, and mode specific attributes
+    are implemented in this class. see mode.py for more details.
+
     used as Terminal User Interface mode for Pychess. TUI is implemented
     using a standard library in Python3.9 called 'curses' which allows
     direct printing (x,y) location on the terminal. see original
