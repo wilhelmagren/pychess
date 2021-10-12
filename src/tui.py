@@ -5,16 +5,17 @@ parsed with argpase CLI. user has to set mode=tui when
 running to start this Terminal User Interface mode.
 
 Author: Wilhelm Aagren, wagren@kth.se
-Last edited: 11-10-2021
+Last edited: 12-10-2021
 """
 import curses
 
+from .mode      import PychessMode
 from .game 	import PychessGame
 from .utils	import *
 
 
 
-class PychessTUI:
+class PychessTUI(PychessMode):
     """!!! definition for class  PychessTUI
     used as Terminal User Interface mode for Pychess. TUI is implemented
     using a standard library in Python3.9 called 'curses' which allows
@@ -46,15 +47,9 @@ class PychessTUI:
 
     """
     def __init__(self, players, names, verbose=False, **kwargs):
-        self._game      = None
-        self._mode      = 'tui'
-        self._players   = players
-        self._names     = names
-        self._verbose   = verbose
+        super().__init__(players, names, verbose=verbose, mode='tui')
         self._screen    = None
         self._screendic = dict()
-        self._clock     = False
-        self._terminal  = False
         self._stdout    = StdOutWrapper()
         self._kwargs    = kwargs
 
@@ -128,7 +123,6 @@ class PychessTUI:
         #!!! draw the player names
         n_y, n_x = self._screendic['player-names']
         name1, name2 = self._game.get_info('white'), self._game.get_info('black')
-        print(n_y, n_x, name1, name2)
         self._screen.addstr(n_y, n_x, "(W) {}  vs  (B) {}".format(name1, name2))
 
         #!!! draw outcome of game if game is terminal state
