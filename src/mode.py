@@ -29,3 +29,5 @@ class PychessMode:
         self._clock     = False
         self._terminal  = False
 
+    def __str__(self):
+        return self._mode+"\t"
