@@ -62,10 +62,10 @@ def parse_args():
     parser.add_argument('-v', '--verbose', action='store_true', 
                         dest='verbose', help='print debugs in verbose mode')
     parser.add_argument('-n', '--names', nargs=2, action='store', type=str,
-                        dest='names', help='set the player names')
-    parser.add_argument('-t','--time', action='store', type=int, default=300,
+                        dest='names', help='set the player names', default=[DEFAULT_WHITE, DEFAULT_BLACK])
+    parser.add_argument('-t','--time', action='store', type=int, default=DEFAULT_TIME,
                         dest='time', help='set the time format (in seconds)')
-    parser.add_argument('-i', '--increment', action='store', type=int, default=5,
+    parser.add_argument('-i', '--increment', action='store', type=int, default=DEFAULT_INCREMENT,
                         dest='increment', help='set the time increment (in seconds)')
     args = parser.parse_args()
     return args
@@ -81,7 +81,6 @@ def create(args):
     """
     players = args.players
     names   = args.names
-    names   = ['white', 'black'] if names is None else names
     verbose = args.verbose
     mode    = args.mode
     t_time  = args.time
@@ -92,11 +91,13 @@ def create(args):
     if players != 1 and players != 2:
         EPRINT("invalid number of players, must be 1 or 2", "Pychess\t")
         sys.exit(0)
-    WPRINT("creating new {} instance".format(mode), "Pychess\t", True)
+
     if mode == 'TUI':
-        return PychessTUI(players, names, verbose=verbose, time=t_time, increment=t_incr)
+        WPRINT("creating new {} instance".format(mode), "Pychess\t", True)
+        return PychessTUI(players, names, verbose=verbose, time=t_time, increment=t_incr, white=names[0], black=names[1])
     elif mode == 'GUI':
-        return PychessGUI(players, names, verbose=verbose, time=t_time, increment=t_incr)
+        WPRINT("creating new {} instance".format(mode), "Pychess\t", True)
+        return PychessGUI(players, names, verbose=verbose, time=t_time, increment=t_incr, white=names[0], black=names[1])
     EPRINT("invalid mode, use -h for help", "Pychess\t")
     sys.exit(0)
 
