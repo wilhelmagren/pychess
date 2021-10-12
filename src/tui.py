@@ -144,11 +144,11 @@ class PychessTUI:
 			return
 
 
-	def _restart(self):
-		self._game 		= PychessGame(players=self._players, verbose=self._verbose, white=self._names[0], black=self._names[1])
-		self._clock 	= False
-		self._terminal 	= False
-		self._run(False)
+    def _restart(self):
+        self._game      = PychessGame(players=self._players, verbose=self._verbose, white=self._names[0], black=self._names[1])
+        self._clock     = False
+        self._terminal  = False
+        self._run(False)
 
 
 	def _quit(self):
@@ -172,12 +172,12 @@ class PychessTUI:
 			return
 
 
-	def start(self):
-		WPRINT("creating new game instance", "PychessTUI\t", True)
-		try:
-			self._game = PychessGame(players=self._players, verbose=self._verbose, white=self._names[0], black=self._names[1], stdout=self._stdout)
-		except:
-			self._stdout.put(ESTRING("could not create new game instance, terminating ...", "PychessTUI\t"))
-			self._stdout.write()
-			return
-		self._run(True)
+    def start(self):
+        WPRINT("creating new game instance", "PychessTUI\t", True)
+        try:
+            self._game = PychessGame(players=self._players, verbose=self._verbose, white=self._names[0], black=self._names[1], stdout=self._stdout)
+        except:
+            self._stdout.put(ESTRING("could not create new game instance, terminating ...", "PychessTUI\t"))
+            self._stdout.write()
+            return
+        self._run(True)
