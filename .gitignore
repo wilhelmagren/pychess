@@ -1,4 +1,2 @@
-.idea/
-lib/__pycache__/
-data/
-nets/
+.gitignore
+src/__pychache__/
