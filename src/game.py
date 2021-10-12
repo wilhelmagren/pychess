@@ -5,7 +5,7 @@ or from the PychessGUI (Graphical User Interface).
 Run this program as main to perform unittest of local functions.
 
 Author: Wilhelm Ågren, wagren@kth.se
-Last edited: 11-10-2021
+Last edited: 12-10-2021
 """
 import time
 import math
