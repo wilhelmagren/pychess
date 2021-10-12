@@ -1,2 +1,2 @@
 .gitignore
-src/__pychache__/
+src/__pychache__/*
