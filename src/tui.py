@@ -29,19 +29,19 @@ class PychessTUI:
 	initialized curses windows is closed.
 
 	public  funcs:
-		$  PychessTUI.start					=>  none
+		$  PychessTUI.start                 =>  none
 
 	private funcs:
-		$  PychessTUI._initscreen			=>	none
-		$  PychessTUI._blit					=>  none
-		$  PychessTUI._blit_quit			=>  none
-		$  PychessTUI._get_and_push_move	=>  none
-		$  PychessTUI._query_new_game		=>  none
-		$  PychessTUI._restart				=>  none
-		$  PychessTUI._run					=>  none
+		$  PychessTUI._initscreen           =>  none
+		$  PychessTUI._blit                 =>  none
+		$  PychessTUI._blit_quit            =>  none
+		$  PychessTUI._get_and_push_move    =>  none
+		$  PychessTUI._query_new_game       =>  none
+		$  PychessTUI._restart              =>  none
+		$  PychessTUI._run                  =>  none
 
 	dunder  funcs:
-		$  PychessTUI.__init__				=>	PychessTUI
+		$  PychessTUI.__init__              =>  PychessTUI
 
 	"""
 	def __init__(self, players, names, verbose=False, **kwargs):
@@ -159,8 +159,8 @@ class PychessTUI:
 
 
 	def _run(self, f_game):
-		try:
-			self._initscreen() if f_game else None
+        try:
+	        self._initscreen() if f_game else None
 			while not self._game.is_terminal():
 				self._blit()
 				self._get_and_push_move()
