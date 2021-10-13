@@ -272,36 +272,3 @@ class PychessGame:
         self._stdout.WPUT("game is terminal, either checkmate or draw/stalemate", str(self), self._verbose)
         return True
 
-
-class TestPychessGame(unittest.TestCase):
-    """!!! definiton for class  TestPychessGame
-    directly inheriting from unittest and overriding .TestCase __init__
-    currently tests three functions from PychessGame class,
-    _set_info
-    _legal_moves
-    _push_moves
-    to make sure that they are correctly implemented in the base class.
-    more test are prone to be written an will update docs in that case.
-    """
-    def __init__(self, *args, **kwargs):
-        super(TestPychessGame, self).__init__(*args, **kwargs)
-        self._pg = PychessGame(2, white='ulysses', black='beq', verbose=False)
-
-
-    def test_set_info(self):
-        self.assertFalse(self._pg._set_info('bingbong', 2))
-        self.assertTrue(self._pg._set_info('ai', False))
-
-
-    def test_legal_moves(self):
-        self.assertEqual(type(self._pg._legal_moves()), list)
-
-
-    def test_push_move(self):
-        self.assertFalse(self._pg._push_move(chess.Move.from_uci('a3b6')))
-        self.assertTrue(self._pg._push_move(chess.Move.from_uci('e2e4')))
-
-
-
-if __name__ == "__main__":
-    unittest.main()
