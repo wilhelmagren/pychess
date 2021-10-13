@@ -92,6 +92,6 @@ def WPRINT(msg, tpe, verbose):
     print("[*]  {}  {}".format(tpe, msg)) if verbose else None
 
 
-def EPRINT(msg, tpe):
-    print("[!]  {}  {}".format(tpe, msg))
+def EPRINT(msg, tpe, verbose):
+    print("[!]  {}  {}".format(tpe, msg)) if verbose else None
 
