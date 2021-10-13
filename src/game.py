@@ -39,6 +39,8 @@ class PychessGame:
         $  PychessGame.is_terminal              =>  bool
 
     private funcs:
+        $  PychessGame._wprint                  =>  none
+        $  PychessGame._eprint                  =>  none
         $  PychessGame._init_info               =>  dict
         $  PychessGame._update_info             =>  none
         $  PychessGame._set_info                =>  bool
