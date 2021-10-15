@@ -10,8 +10,8 @@ Last edited: 12-10-2021
 import curses
 
 from .mode      import PychessMode
-from .game 	import PychessGame
-from .utils	import *
+from .game      import PychessGame
+from .utils     import *
 
 
 

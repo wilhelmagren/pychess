@@ -23,9 +23,9 @@ import os
 import sys
 import argparse
 
-from src.gui 	import PychessGUI
-from src.tui 	import PychessTUI
-from src.utils	import *
+from src.gui   import PychessGUI
+from src.tui   import PychessTUI
+from src.utils      import *
 
 
 
