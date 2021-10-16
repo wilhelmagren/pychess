@@ -14,6 +14,7 @@ Last edited: 15-10-2021
 import os
 import sys
 import time
+import argparse
 import threading
 import chess.pgn
 import chess.engine
@@ -21,22 +22,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
-from utils import WPRINT
+from utils import WPRINT, EPRINT, num_games_in_PGN
 
 FILEPATHS = os.listdir('../../data/pgn-data/')
 EXTREME_VALUES = [-6000, 6000]
-
-
-def num_games_in_pgn(pgnfile):
-    with open('../../data/pgn-data/'+pgnfile+'/'+pgnfile) as pgn:
-        
-        count = 1
-        game = chess.pgn.read_headers(pgn)
-        while game is not None:
-            print("current count: {}".format(count)) if count % 1000 == 0 else None
-            count += 1
-            game = chess.pgn.read_headers(pgn)
-        print("{} number of games in {}".format(count, pgnfile))
 
 
 
@@ -44,8 +33,8 @@ class DataGenerator:
     def __init__(self, pgnfile, **kwargs):
         self._store         = dict()
         self._filepath      = pgnfile
-        self._ngames        = kwargs.get('numgames', 500000)
-        self._nthreads      = kwargs.get('threads', 2)
+        self._ngames        = kwargs.get('ngames', 10000)
+        self._nthreads      = kwargs.get('nthreads', 10)
         self._categorical   = kwargs.get('categorical', False)
         self._regression    = kwargs.get('regression', False)
 
@@ -54,44 +43,6 @@ class DataGenerator:
 
     def __str__(self):
         return "DataGenerator"
-
-
-    def plot(self):
-        vals = self._store.values()
-        plt.hist(vals, bins=13000, color='gray', edgecolor='black', linewidth='1')
-        plt.title('Regression label distribution')
-        plt.xlabel('label')
-        plt.ylabel('num samples')
-        plt.xlim((-6500, 6500))
-        plt.savefig('{}-dist.png'.format('2019'))
-
-    
-    def import_data(self):
-        WPRINT("importing data dictionary with FEN+labels...", str(self), True)
-        completedict = dict()
-        files = list(f for f in os.listdir('.') if '.npz' in f)
-        dicts = list(map(lambda f: np.load(f, allow_pickle=True)['arr_0'], files))
-        for dic in dicts:
-            completedict = {**completedict, **dic[()]}
-        WPRINT("done importing", str(self), True)
-        self._store = completedict
-
-    
-    def export_data(self):
-        WPRINT("exporting data ditctionary with FEN+labels", str(self), True)
-        completedict = self._merge_thread_dicts()
-        np.savez_compressed('{}_blitz_FEN-{}'.format(self._filepath.split('_')[1], 'C' if self._categorical else 'R'), self._store)
-
-
-    def scale_data(self):
-        WPRINT("scaling down extreme points in data", str(self), True)
-        scaleddict = {k: v if v < EXTREME_VALUES[1] else EXTREME_VALUE[1] for k, v in self._store.items()}
-        scaleddict = {k: v if v > EXTREME_VALUES[0] else EXTREME_VALUES[0] for k, v in scaleddict.items()}
-
-        assert len(scaleddict) == len(self._store), EPRINT("missed values when scaling data, dictionaries not matching size", str(self))
-
-        self._store = scaleddict
-        WPRINT("done scaling down data", str(self), True) 
 
 
     def _merge_thread_dicts(self):
@@ -141,6 +92,46 @@ class DataGenerator:
         self._store[threadid] = thread_store
 
 
+    def plot(self, fname):
+        vals = self._store.values()
+        plt.hist(vals, bins=10000, color='gray', edgecolor='black', linewidth='1')
+        plt.title('Regression label distribution')
+        plt.xlabel('label')
+        plt.ylabel('num samples')
+        plt.xlim((-11000, 11000))
+        plt.savefig(fname+'.png')
+
+    
+    def import_data(self):
+        WPRINT("importing data dictionary with FEN+labels...", str(self), True)
+        completedict = dict()
+        files = list(f for f in os.listdir('.') if '.npz' in f)
+        dicts = list(map(lambda f: np.load(f, allow_pickle=True)['arr_0'], files))
+        for dic in dicts:
+            completedict = {**completedict, **dic[()]}
+        WPRINT("done importing", str(self), True)
+        self._store = completedict
+
+    
+    def export_data(self):
+        WPRINT("exporting data ditctionary with FEN+labels", str(self), True)
+        np.savez_compressed('{}_blitz_FEN-{}'.format(self._filepath.split('_')[1], 'C' if self._categorical else 'R'), self._store)
+
+
+    def scale_data(self):
+        """
+        TODO: FIX THE SCALING; THE VALUES ARE DUPLICATED????
+        """
+        WPRINT("scaling down extreme points in data", str(self), True)
+        scaleddict = {k: v if v < EXTREME_VALUES[1] else EXTREME_VALUES[1] for k, v in self._store.items()}
+        scaleddict = {k: v if v > EXTREME_VALUES[0] else EXTREME_VALUES[0] for k, v in scaleddict.items()}
+
+        assert len(scaleddict) == len(self._store), EPRINT("missed values when scaling data, dictionaries not matching size", str(self))
+
+        self._store = scaleddict
+        WPRINT("done scaling down data", str(self), True) 
+
+
     def t_generate(self):
         WPRINT("spawning {} threads".format(self._nthreads), str(self), True)
         procs = []
@@ -156,10 +147,26 @@ class DataGenerator:
 
 
 if __name__ == "__main__":
-    datagen = DataGenerator(FILEPATHS[0], threads=10, numgames=10000, regression=True)
+    parser = argparse.ArgumentParser(prog='datagenerator', usage='%(prog)s [options]')
+    parser.add_argument('-v', '--verbose', action='store_true', dest='verbose', help='print debugs in verbose mode')
+    parser.add_argument('-nt', '--nthreads', action='store', type=int,
+                        dest='nthreads', help='set number of threads to use for generation', default=10)
+    parser.add_argument('-ng', '--ngames', action='store', type=int,
+                        dest='ngames', help='set the number of games to read for each thread', default=10000)
+    parser.add_argument('-r', '--regression', action='store_true',
+                        dest='regression', help='set labeling to numerical values')
+    parser.add_argument('-c', '--classification', action='store_true',
+                        dest='classification', help='set labeling to classes')
+    parser.add_argument('-f', '--files', nargs='+', action='store', type=str, dest='files', 
+                        help='set the files to generate FEN+label samples from', default=FILEPATHS)
+    args = parser.parse_args()
+    
+    assert args.regression != args.classification, EPRINT("you can't run both classfication and regreesion labeling, use -h for help", "ArgParser")
+
+    datagen = DataGenerator(args.files[0], nthreads=args.nthreads, ngames=args.ngames, regression=args.regression, classifcation=args.classification)
     datagen.import_data()
     datagen.scale_data()
     #datagen.t_generate()
-    datagen.plot()
+    datagen.plot("after-scaling")
     #datagen.export_data()
 
