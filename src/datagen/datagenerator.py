@@ -32,6 +32,8 @@ EXALLOW = 20000
 NTHRESH = -50
 PTHRESH =  50
 
+
+
 class DataGenerator:
     def __init__(self, pgnfile, **kwargs):
         self._store         = dict()
@@ -44,10 +46,26 @@ class DataGenerator:
         if self._categorical == self._regression:
             raise ValueError("can't do both regression and categorical labels...")
 
-
     def __str__(self):
-        return "DataGenerator"
+        return 'DataGenerator'
 
+    def _value_to_class(self, value):
+        if value < -2000:
+            return 0
+        elif -2000 <= value < -1000:
+            return 1
+        elif -1000 <= value < -500:
+            return 2
+        elif -500  <= value < 0:
+            return 3
+        elif 0     <= value < 500:
+            return 4
+        elif 500   <= value < 1000:
+            return 5
+        elif 1000  <= value < 2000:
+            return 6
+        else:
+            return 7
 
     def _merge_thread_dicts(self):
         WPRINT("merging the thread-created dictionaries", str(self), True)
@@ -55,7 +73,6 @@ class DataGenerator:
         for dic in dics:
             completedict = {**completedict, **dic}
         return completedict
-
 
     def _parse(self, threadid, offset):
         engine = chess.engine.SimpleEngine.popen_uci('../../stockfish/stockfish_14_x64_avx2.exe')
@@ -97,18 +114,56 @@ class DataGenerator:
 
 
     def plot(self, data, fname):
-        plt.hist(data, bins=1000, color='gray', edgecolor='black', linewidth='1.2')
-        plt.title('Regression label distribution')
+        plt.hist(data, bins=8, color='gray', edgecolor='black', linewidth='1.2')
+        plt.title('Classification label distribution')
         plt.xlabel('label')
         plt.ylabel('num samples')
-        plt.xlim((-2, 2))
+        plt.xlim((-1, 8))
         plt.savefig(fname+'.png')
+    
+
+    def serialize_data(self):
+        """ public func
+        @spec  serialize_data(DataGenerator)  =>  none
+        func takes the current self._store dict and parses each
+        FEN+val pair, serializes the FEN to np.array bitmap and
+        matches the value with the newly created array.
+        """
+        WPRINT("serializing the loaded data", str(self), True)
+        X, Y, t_start, data = list(), list(), time.time(), self._store
+        p_offset = {'P': 0, 'N': 1, 'B': 2, 'R': 3, 'Q': 4, 'K': 5,
+                    'p': 0, 'n': 1, 'b': 2, 'r': 3, 'q': 4, 'k': 5}
+        for item, (FEN, label) in enumerate(data.items()):
+            if len(FEN.split('/')) < 6:
+                continue
+            bitmap = np.zeros((13, 8, 8), dtype=np.int16)  # 6 piece types  +  7 state flags
+            board  = chess.Board(FEN)
+            for idx in reversed(range(64)):
+                x, y = idx % 8, int(np.floor(idx / 8))
+                p = board.piece_at(idx)
+                if p:
+                    bitmap[p_offset[p.symbol()], x, y] = 1 if p.color == chess.WHITE else -1
+            bitmap[6, :, :] = int(board.turn)
+            bitmap[7, :, :] = int(board.has_kingside_castling_rights(chess.WHITE))
+            bitmap[8, :, :] = int(board.has_kingside_castling_rights(chess.BLACK))
+            bitmap[9, :, :] = int(board.has_queenside_castling_rights(chess.WHITE))
+            bitmap[10, :, :] = int(board.has_queenside_castling_rights(chess.BLACK))
+            bitmap[11, :, :] = 1 if board.is_check() and board.turn else 0
+            bitmap[12, :, :] = 1 if board.is_check() and not board.turn else 0
+            X.append(bitmap[None])
+            Y.append(self._value_to_class(label))
+            WPRINT("parsed position: {}".format(item + 1), str(self), True)
+        X = np.concatenate(X, axis=0)
+        Y = np.array(Y)
+        WPRINT("done serializing all positions", str(self), True)
+        self.plot(Y, "classification")
+        self.export_data(X, Y, "2019-serialized_FEN-C.npz")
 
     
-    def import_data(self, f=None):
+    def import_data(self, fname=None):
         WPRINT("importing data dictionary with FEN+labels", str(self), True)
         completedict = dict()
-        files = list(f for f in os.listdir('.') if '.npz' in f) if f is None else f
+        files = list(f for f in os.listdir('.') if '.npz' in fname) if fname is None else fname
         dicts = list(map(lambda f: np.load(f, allow_pickle=True)['arr_0'], files))
         for dic in dicts:
             completedict = {**completedict, **dic[()]}
@@ -116,9 +171,9 @@ class DataGenerator:
         self._store = completedict
 
     
-    def export_data(self, fname):
-        WPRINT("exporting data dictionary with FEN+labels", str(self), True)
-        np.savez_compressed(fname, self._store)
+    def export_data(self, X, Y, fname):
+        WPRINT("exporting data to {}".format(fname), str(self), True)
+        np.savez_compressed(fname, X, Y)
 
 
     def rerange_data(self):
@@ -218,14 +273,11 @@ if __name__ == "__main__":
         raise ValueError("you can't use both regression and classification labels, use -h for help")
 
     datagen = DataGenerator(args.files[0], nthreads=args.nthreads, ngames=args.ngames, regression=args.regression, classifcation=args.classification)
-    datagen.import_data(f=["2019-downsampled_FEN-R.npz"])
-    # datagen.plot(datagen._store.values(), "loaded-downsampled")
-    #datagen.shuffle_data()
+    datagen.import_data(fname=["2019-downsampled_FEN-R.npz"])
+    datagen.serialize_data()
+    # datagen.shuffle_data()
     # datagen.rerange_data()
     # datagen.plot(datagen._store.values(), "after-reranging")
     # datagen.downsample_data()
-    datagen.scale_data_min_max()
     # datagen.scale_data_studentized_residual()
-    datagen.plot(datagen._store.values(), "2019-dist-downsampled-scaled")
-    datagen.export_data("2019-downsampled-scaled_FEN-R.npz")
 

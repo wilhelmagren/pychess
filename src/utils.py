@@ -75,23 +75,37 @@ class StdOutWrapper:
 
 
 """!!! global funcs
-WSTRING(str, str, bool) =>  str
-ESTRING(str, str)       =>  str
-WPRINT(str, str, bool)  =>  none
-EPRINT(str, str)        =>  none
+WSTRING(str, str, bool)     =>  str
+ESTRING(str, str)           =>  str
+WPRINT(str, str, bool)      =>  none
+EPRINT(str, str)            =>  none
+TPRINT(int, float, float)   =>  none
+num_games_in_PGN            =>  none
 """
 def WSTRING(msg, tpe, verbose):
     return "[*]  {}  {}".format(tpe, msg) if verbose else None
 
-
 def ESTRING(msg, tpe):
     return "[!]  {}  {}".format(tpe, msg)
-
 
 def WPRINT(msg, tpe, verbose):
     print("[*]  {}  {}".format(tpe, msg)) if verbose else None
 
+def EPRINT(msg, tpe):
+    print("[!]  {}  {}".format(tpe, msg))
 
-def EPRINT(msg, tpe, verbose):
-    print("[!]  {}  {}".format(tpe, msg)) if verbose else None
+def TPRINT(ep, tloss, vloss):
+    print("[*]  epoch={}   tloss={:.4f}   vloss={:.4f}".format(ep, tloss, vloss))
+
+def num_games_in_PGN(pgnfile):
+    with open('../../data/pgn-data/'+pgnfile+'/'+pgnfile) as pgn:
+        
+        count = 1
+        game = chess.pgn.read_headers(pgn)
+        while game is not None:
+            print("current count: {}".format(count)) if count % 1000 == 0 else None
+            count += 1
+            game = chess.pgn.read_headers(pgn)
+        print("{} number of games in {}".format(count, pgnfile))
+
 
