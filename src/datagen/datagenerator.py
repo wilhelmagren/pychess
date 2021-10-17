@@ -14,6 +14,7 @@ Last edited: 15-10-2021
 import os
 import sys
 import time
+import random
 import argparse
 import threading
 import chess.pgn
@@ -25,9 +26,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.
 from utils import WPRINT, EPRINT, num_games_in_PGN
 
 FILEPATHS = os.listdir('../../data/pgn-data/')
-EXTREME_VALUES = [-6000, 6000]
-
-
+EXTREME_VALUES = [-6000.0, 6000.0]
+ALLOW = 100000
+EXALLOW = 20000
+NTHRESH = -50
+PTHRESH =  50
 
 class DataGenerator:
     def __init__(self, pgnfile, **kwargs):
@@ -38,7 +41,8 @@ class DataGenerator:
         self._categorical   = kwargs.get('categorical', False)
         self._regression    = kwargs.get('regression', False)
 
-        assert self._categorical != self._regression, EPRINT("can't do both regresssion and categorical labels...", str(self))
+        if self._categorical == self._regression:
+            raise ValueError("can't do both regression and categorical labels...")
 
 
     def __str__(self):
@@ -92,20 +96,19 @@ class DataGenerator:
         self._store[threadid] = thread_store
 
 
-    def plot(self, fname):
-        vals = self._store.values()
-        plt.hist(vals, bins=10000, color='gray', edgecolor='black', linewidth='1')
+    def plot(self, data, fname):
+        plt.hist(data, bins=1000, color='gray', edgecolor='black', linewidth='1.2')
         plt.title('Regression label distribution')
         plt.xlabel('label')
         plt.ylabel('num samples')
-        plt.xlim((-11000, 11000))
+        plt.xlim((-2, 2))
         plt.savefig(fname+'.png')
 
     
-    def import_data(self):
-        WPRINT("importing data dictionary with FEN+labels...", str(self), True)
+    def import_data(self, f=None):
+        WPRINT("importing data dictionary with FEN+labels", str(self), True)
         completedict = dict()
-        files = list(f for f in os.listdir('.') if '.npz' in f)
+        files = list(f for f in os.listdir('.') if '.npz' in f) if f is None else f
         dicts = list(map(lambda f: np.load(f, allow_pickle=True)['arr_0'], files))
         for dic in dicts:
             completedict = {**completedict, **dic[()]}
@@ -113,23 +116,73 @@ class DataGenerator:
         self._store = completedict
 
     
-    def export_data(self):
-        WPRINT("exporting data ditctionary with FEN+labels", str(self), True)
-        np.savez_compressed('{}_blitz_FEN-{}'.format(self._filepath.split('_')[1], 'C' if self._categorical else 'R'), self._store)
+    def export_data(self, fname):
+        WPRINT("exporting data dictionary with FEN+labels", str(self), True)
+        np.savez_compressed(fname, self._store)
 
 
-    def scale_data(self):
+    def rerange_data(self):
+        WPRINT("setting range for data", str(self), True)
+        nplabels = np.array(list(self._store.values()), dtype=np.float16)
+        nplabels[nplabels > EXTREME_VALUES[1]] = EXTREME_VALUES[1]
+        nplabels[nplabels < EXTREME_VALUES[0]] = EXTREME_VALUES[0]
+        self._store = {k: nplabels[i] for i, k in enumerate(self._store.keys())}
+        WPRINT("done reranging data", str(self), True) 
+
+    
+    def scale_data_min_max(self, a=-1, b=1):
+        WPRINT("scaling down data labels using min-max (normalization)", str(self), True)
+        nplabels = np.array(list(self._store.values()), dtype=np.float16)
+        FEATURE_MAX, FEATURE_MIN = nplabels.max(), nplabels.min()
+        nplabels = a + ((nplabels - FEATURE_MIN)*(b - a)) / (FEATURE_MAX - FEATURE_MIN)
+        self._store = {k: nplabels[i] for i, k in enumerate(self._store.keys())}
+        WPRINT("done scaling down data", str(self), True)
+
+
+    def scale_data_studentized_residual(self):
+        WPRINT("scaling down data labels using studentized residual (normalization)", str(self), True)
+        nplabels = np.array(list(self._store.values()))
+        nplabels = (nplabels - np.mean(nplabels)) / np.std(nplabels)
+        self._store = {k: nplabels[i] for i, k in enumerate(self._store.keys())}
+        WPRINT("done scaling down data", str(self), True)
+
+
+    def shuffle_data(self):
+        WPRINT("shuffling the data", str(self), True)
+        keys = list(self._store.keys())
+        random.shuffle(keys)
+        shuffleddict = {k: self._store[k] for k in keys}
+        self._store = shuffleddict
+        WPRINT("done shuffling data", str(self), True)
+
+    
+    def downsample_data(self):
         """
-        TODO: FIX THE SCALING; THE VALUES ARE DUPLICATED????
+        remove some samples from the extreme middle point in our regression set
         """
-        WPRINT("scaling down extreme points in data", str(self), True)
-        scaleddict = {k: v if v < EXTREME_VALUES[1] else EXTREME_VALUES[1] for k, v in self._store.items()}
-        scaleddict = {k: v if v > EXTREME_VALUES[0] else EXTREME_VALUES[0] for k, v in scaleddict.items()}
-
-        assert len(scaleddict) == len(self._store), EPRINT("missed values when scaling data, dictionaries not matching size", str(self))
-
-        self._store = scaleddict
-        WPRINT("done scaling down data", str(self), True) 
+        WPRINT("downsampling the regression labels", str(self), True)
+        ncount, pcount, nexcount, pexcount, sampleddict = 0, 0, 0, 0, dict()
+        for k, v in self._store.items():
+            if NTHRESH < v < 0:
+                if ncount < ALLOW:
+                    ncount += 1
+                    sampleddict[k] = v
+            elif 0 <= v < PTHRESH:
+                if pcount < ALLOW:
+                    pcount += 1
+                    sampleddict[k] = v
+            elif v <= EXTREME_VALUES[0]:
+                if nexcount < EXALLOW:
+                    nexcount += 1
+                    sampleddict[k] = v
+            elif v >= EXTREME_VALUES[1]:
+                if pexcount < EXALLOW:
+                    pexcount += 1
+                    sampleddict[k] = v
+            else:
+                sampleddict[k] = v
+        self._store = sampleddict
+        WPRINT("done downsampling", str(self), True)
 
 
     def t_generate(self):
@@ -161,12 +214,18 @@ if __name__ == "__main__":
                         help='set the files to generate FEN+label samples from', default=FILEPATHS)
     args = parser.parse_args()
     
-    assert args.regression != args.classification, EPRINT("you can't run both classfication and regreesion labeling, use -h for help", "ArgParser")
+    if args.regression == args.classification:
+        raise ValueError("you can't use both regression and classification labels, use -h for help")
 
     datagen = DataGenerator(args.files[0], nthreads=args.nthreads, ngames=args.ngames, regression=args.regression, classifcation=args.classification)
-    datagen.import_data()
-    datagen.scale_data()
-    #datagen.t_generate()
-    datagen.plot("after-scaling")
-    #datagen.export_data()
+    datagen.import_data(f=["2019-downsampled_FEN-R.npz"])
+    # datagen.plot(datagen._store.values(), "loaded-downsampled")
+    #datagen.shuffle_data()
+    # datagen.rerange_data()
+    # datagen.plot(datagen._store.values(), "after-reranging")
+    # datagen.downsample_data()
+    datagen.scale_data_min_max()
+    # datagen.scale_data_studentized_residual()
+    datagen.plot(datagen._store.values(), "2019-dist-downsampled-scaled")
+    datagen.export_data("2019-downsampled-scaled_FEN-R.npz")
 
