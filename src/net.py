@@ -15,6 +15,7 @@ import torch.nn as nn
 import numpy as np
 np.random.seed(98)
 
+from trainer import PyTrainer
 from torchsummary import summary
 from torch.utils.data import Dataset, DataLoader
 from sklearn.utils import class_weight
@@ -25,55 +26,51 @@ def calc_class_weights(labels):
     cw = class_weight.compute_class_weight('balanced', classes=np.unique(labels), y=labels)
     print(cw)
 
-def fit(model, train, valid, optimizer, condition, device, epochs=30):
-    WPRINT("initializing model fit with {}".format(device), str(model), True)
-    model.train()
-    for epoch in range(epochs):
-        tloss, tacc, vloss, vacc = 0, 0, 0, 0
-        for batch, (sample, label) in enumerate(train):
-            sample, label = sample.to(device).float(), label.to(device).long()
-            optimizer.zero_grad()
-            output = model(sample)
-            loss = condition(output, label)
-            loss.backward()
-            optimizer.step()
-            tloss += loss.item()
-            _, pred = torch.max(output.data, 1)
-            tacc += (pred == label).sum().item()/output.shape[0]
-        for batch, (sample, label) in enumerate(valid):
-            sample, label = sample.to(device).float(), label.to(device).long()
-            output = model(sample)
-            loss = condition(output, label)
-            vloss += loss.item()
-            _, pred = torch.max(output.data, 1)
-            vacc += (pred == label).sum().item()/output.shape[0]
-        TPRINT(epoch, tloss/len(train), tacc/len(train), vloss/len(valid), vacc/len(valid))
-
-
 class ChessClassifierCNN(nn.Module):
     def __init__(self, n_classes):
         super(ChessClassifierCNN, self).__init__()
-        self._conv1 = nn.Conv2d(17, 16, 3)
-        self._conv2 = nn.Conv2d(16, 32, 3)
-        self._conv3 = nn.Conv2d(32, 64, 3)
-        self._bnorm1 = nn.BatchNorm2d(16)
-        self._bnorm2 = nn.BatchNorm2d(32)
-        self._bnorm3 = nn.BatchNorm2d(64)
-        self._aff1 = nn.Linear(64*2*2, 256)
-        self._aff2 = nn.Linear(256, 128)
-        self._aff3 = nn.Linear(128, n_classes)
-        self._bnorm4 = nn.BatchNorm1d(256)
-        self._bnorm5 = nn.BatchNorm1d(128)
-        self._droput = nn.Dropout(p=0.5)
-    
+        self._forward = nn.Sequential(
+                nn.Conv2d(18, 32, 5),
+                nn.BatchNorm2d(32),
+                nn.ReLU(),
+                nn.Conv2d(32, 64, 3),
+                nn.BatchNorm2d(64),
+                nn.ReLU(),
+                nn.Flatten(start_dim=1),
+                nn.Linear(64*2*2, 128),
+                nn.BatchNorm1d(128),
+                nn.ReLU(),
+                nn.Dropout(p=0.5),
+                nn.Linear(128, 128),
+                nn.BatchNorm1d(128),
+                nn.ReLU(),
+                nn.Dropout(p=0.5),
+                nn.Linear(128, n_classes),
+                nn.Sigmoid()  # should this be here?
+                )
+        self._forward1 = nn.Sequential(
+                nn.Conv2d(18, 32, 3),
+                nn.BatchNorm2d(32),
+                nn.ReLU(),
+                nn.Conv2d(32, 64, 3),
+                nn.BatchNorm2d(64),
+                nn.ReLU(),
+                nn.Conv2d(64, 128, 3),
+                nn.BatchNorm2d(128),
+                nn.ReLU(),
+                nn.Flatten(start_dim=1),
+                nn.Linear(128*2*2, 128),
+                nn.BatchNorm1d(128),
+                nn.Dropout(p=0.5),
+                nn.Linear(128, 128),
+                nn.BatchNorm1d(128),
+                nn.Dropout(p=0.5),
+                nn.Linear(128, n_classes),
+                nn.Sigmoid()
+                )
+
     def forward(self, x):
-        x = torch.relu(self._bnorm1(self._conv1(x)))
-        x = torch.relu(self._bnorm2(self._conv2(x)))
-        x = torch.relu(self._bnorm3(self._conv3(x)))
-        x = x.flatten(start_dim=1)
-        x = self._droput(torch.relu(self._bnorm4(self._aff1(x))))
-        x = self._droput(torch.relu(self._bnorm5(self._aff2(x))))
-        x = self._aff3(x)
+        x = self._forward1(x)
         return x 
 
     def __str__(self):
@@ -103,7 +100,7 @@ class DatasetWrapper(Dataset):
 
 
 class DatasetChess:
-    def __init__(self, shuffle=True, batch_size=4096, fname='datagen/2019-serialized_NP-C.npz'):
+    def __init__(self, shuffle=True, batch_size=4096, fname='../data/2019-serialized_NP-C-9.npz'):
         self.shuffle, self.batch_size = shuffle, batch_size
         self.X, self.Y = self._load(fname)
         self.datasets = self._train_valid_test_split()
@@ -116,7 +113,6 @@ class DatasetChess:
         WPRINT("loading data from {}".format(fname), str(self), True)
         data = np.load(fname, allow_pickle=True)
         X, Y = data['arr_0'], data['arr_1']
-        X, Y = X[:20000], Y[:20000]
         WPRINT("loaded {} samples from {}".format(X.shape, fname), str(self), True)
         return X, Y
 
@@ -144,11 +140,20 @@ class DatasetChess:
 
 if __name__ == "__main__":
     dataset = DatasetChess()
-    model, device = ChessClassifierCNN(3), 'cuda' if torch.cuda.is_available() else 'cpu'
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
-    # condition = torch.nn.MSELoss()
+    model, device = ChessClassifierCNN(9), 'cuda' if torch.cuda.is_available() else 'cpu'
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
     condition = torch.nn.CrossEntropyLoss()
-    model.to(device)
-    summary(model,(17, 8, 8))
-    fit(model, dataset.dataloaders['train'], dataset.dataloaders['valid'], optimizer, condition, device)
+    #summary(model,(18, 8, 8))
+    trainer = PyTrainer(model, 
+                        device, 
+                        train=dataset.dataloaders['train'],
+                        valid=dataset.dataloaders['valid'],
+                        test=dataset.dataloaders['test'],
+                        optimizer=optimizer,
+                        condition=condition,
+                        n_epochs=20,
+                        verbose=True)
+    trainer.fit()
+    # trainer.plot_classification()
+    trainer.test_classification()
 
