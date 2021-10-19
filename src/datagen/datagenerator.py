@@ -9,7 +9,7 @@ the fics2019-blitz dataset contains 4787152 number of games,
 which mean you can safely parse up to 4.5 million games.
 
 Author: Wilhelm Ågren, wagren@kth.se
-Last edited: 15-10-2021
+Last edited: 18-10-2021
 """
 import os
 import sys
@@ -49,23 +49,13 @@ class DataGenerator:
     def __str__(self):
         return 'DataGenerator'
 
-    def _value_to_class(self, value):
-        if value < -2000:
+    def _label_to_class(self, val):
+        if val < -100:
             return 0
-        elif -2000 <= value < -1000:
+        elif -100 <= val < 100:
             return 1
-        elif -1000 <= value < -500:
+        elif 100 <= val:
             return 2
-        elif -500  <= value < 0:
-            return 3
-        elif 0     <= value < 500:
-            return 4
-        elif 500   <= value < 1000:
-            return 5
-        elif 1000  <= value < 2000:
-            return 6
-        else:
-            return 7
 
     def _merge_thread_dicts(self):
         WPRINT("merging the thread-created dictionaries", str(self), True)
@@ -73,8 +63,44 @@ class DataGenerator:
         for dic in dics:
             completedict = {**completedict, **dic}
         return completedict
+    
+    def _merge_thread_lists(self):
+        WPRINT("merging the thread-created lists", str(self), True)
+        lists, completelist = list(self._store[key] for key in self._store.keys()), list()
+        for l in lists:
+            completelist.extend(l)
+        WPRINT("done merging the lists", str(self), True)
+        return completelist
 
-    def _parse(self, threadid, offset):
+    def _parse_outcomes(self, threadid, offset):
+        t_store, n_games, n_pos = list(), 0, 0
+        v_outcome = {'1/2-1/2': 0, '0-1': -1, '1-0': 1}
+        with open('../../data/pgn-data/'+self._filepath+'/'+self._filepath) as pgn:
+            for _ in range(offset):
+                _ = chess.pgn.read_headers(pgn)
+            while n_games < self._ngames:
+                game = chess.pgn.read_game(pgn)
+                if game is None:
+                    break
+                res = game.headers['Result']
+                if res not in v_outcome:
+                    continue
+                outcome = v_outcome[res]
+                board = game.board()
+                for move in game.mainline_moves():
+                    board.push(move)
+                    FEN = board.fen()
+                    t_fen = ''
+                    for idx, subs in enumerate(FEN.split(' ')[:-3]):
+                        t_fen += subs if idx == 0 else ' ' + subs
+                    t_store.append((t_fen, outcome))
+                    n_pos += 1
+                n_games += 1
+                WPRINT("thread={} processed {} games and {} positions".format(threadid, n_games, n_pos), str(self), True)
+        WPRINT("thread={} done!".format(threadid), str(self), True)
+        self._store[threadid] = t_store
+
+    def _parse_regression(self, threadid, offset):
         engine = chess.engine.SimpleEngine.popen_uci('../../stockfish/stockfish_14_x64_avx2.exe')
         thread_store, n_games, n_pos = dict(), 0, 0
         with open('../../data/pgn-data/'+self._filepath+'/'+self._filepath) as pgn:
@@ -112,16 +138,14 @@ class DataGenerator:
         WPRINT("thread={} done!".format(threadid), str(self), True)
         self._store[threadid] = thread_store
 
-
     def plot(self, data, fname):
-        plt.hist(data, bins=8, color='gray', edgecolor='black', linewidth='1.2')
+        plt.hist(data, bins=3, color='gray', edgecolor='black', linewidth='1.2')
         plt.title('Classification label distribution')
         plt.xlabel('label')
         plt.ylabel('num samples')
-        plt.xlim((-1, 8))
+        plt.xlim((-1, 3))
         plt.savefig(fname+'.png')
     
-
     def serialize_data(self):
         """ public func
         @spec  serialize_data(DataGenerator)  =>  none
@@ -132,49 +156,66 @@ class DataGenerator:
         WPRINT("serializing the loaded data", str(self), True)
         X, Y, t_start, data = list(), list(), time.time(), self._store
         p_offset = {'P': 0, 'N': 1, 'B': 2, 'R': 3, 'Q': 4, 'K': 5,
-                    'p': 0, 'n': 1, 'b': 2, 'r': 3, 'q': 4, 'k': 5}
+                    'p': 6, 'n': 7, 'b': 8, 'r': 9, 'q': 10, 'k': 11}
         for item, (FEN, label) in enumerate(data.items()):
             if len(FEN.split('/')) < 6:
                 continue
-            bitmap = np.zeros((13, 8, 8), dtype=np.int16)  # 6 piece types  +  7 state flags
-            board  = chess.Board(FEN)
-            for idx in reversed(range(64)):
-                x, y = idx % 8, int(np.floor(idx / 8))
+            label = int(label)
+            bitmap = np.zeros((17, 64), dtype=np.int8)  # 6 piece types  +  7 state flags
+            board = chess.Board(FEN)
+            for idx in range(64):
                 p = board.piece_at(idx)
                 if p:
-                    bitmap[p_offset[p.symbol()], x, y] = 1 if p.color == chess.WHITE else -1
-            bitmap[6, :, :] = int(board.turn)
-            bitmap[7, :, :] = int(board.has_kingside_castling_rights(chess.WHITE))
-            bitmap[8, :, :] = int(board.has_kingside_castling_rights(chess.BLACK))
-            bitmap[9, :, :] = int(board.has_queenside_castling_rights(chess.WHITE))
-            bitmap[10, :, :] = int(board.has_queenside_castling_rights(chess.BLACK))
-            bitmap[11, :, :] = 1 if board.is_check() and board.turn else 0
-            bitmap[12, :, :] = 1 if board.is_check() and not board.turn else 0
+                    bitmap[p_offset[p.symbol()], idx] = 1 
+            bitmap[12, :] = int(board.turn)
+            bitmap[13, :] = int(board.has_kingside_castling_rights(chess.WHITE))
+            bitmap[14, :] = int(board.has_kingside_castling_rights(chess.BLACK))
+            bitmap[15, :] = int(board.has_queenside_castling_rights(chess.WHITE))
+            bitmap[16, :] = int(board.has_queenside_castling_rights(chess.BLACK))
+            bitmap = bitmap.reshape(17, 8, 8)
             X.append(bitmap[None])
-            Y.append(self._value_to_class(label))
+            Y.append(self._label_to_class(label))
             WPRINT("parsed position: {}".format(item + 1), str(self), True)
         X = np.concatenate(X, axis=0)
         Y = np.array(Y)
         WPRINT("done serializing all positions", str(self), True)
-        self.plot(Y, "classification")
-        self.export_data(X, Y, "2019-serialized_FEN-C.npz")
+        self.plot(Y, "2019-dist_C")
+        self.export_serialized_data(X, Y, "2019-serialized_NP-C.npz")
 
+    def import_data_npz(self, fname=None):
+        WPRINT("import npz data", str(self), True)
+        data = np.load(fname, allow_pickle=True)
+        X, Y = data['arr_0'], data['arr_1']
+        self._store = list((x, y) for x, y in zip(X, Y))
+        WPRINT("loaded {} samples from {}".format(len(Y), fname), str(self), True)
+
+    def import_data_list(self, fname=None):
+        WPRINT("importing data list with FEN+labels", str(self), True)
+        completelist = list()
+        files = list(f for f in os.listdir('.') if '.npz' in f) if fname is None else fname
+        lists = list(map(lambda f: np.load(f, allow_pickle=True)['arr_0'], files))
+        for l in lists:
+            completelist.extend(l)
+        WPRINT("done importing", str(self), True)
+        self._store = completelist
     
-    def import_data(self, fname=None):
+    def import_data_dict(self, fname=None):
         WPRINT("importing data dictionary with FEN+labels", str(self), True)
         completedict = dict()
-        files = list(f for f in os.listdir('.') if '.npz' in fname) if fname is None else fname
+        files = list(f for f in os.listdir('.') if '.npz' in f) if fname is None else fname
         dicts = list(map(lambda f: np.load(f, allow_pickle=True)['arr_0'], files))
         for dic in dicts:
             completedict = {**completedict, **dic[()]}
         WPRINT("done importing", str(self), True)
         self._store = completedict
 
+    def export_data(self, X, fname):
+        WPRINT("exporting data to {}".format(fname), str(self), True)
+        np.savez_compressed(fname, X)
     
-    def export_data(self, X, Y, fname):
+    def export_serialized_data(self, X, Y, fname):
         WPRINT("exporting data to {}".format(fname), str(self), True)
         np.savez_compressed(fname, X, Y)
-
 
     def rerange_data(self):
         WPRINT("setting range for data", str(self), True)
@@ -183,7 +224,6 @@ class DataGenerator:
         nplabels[nplabels < EXTREME_VALUES[0]] = EXTREME_VALUES[0]
         self._store = {k: nplabels[i] for i, k in enumerate(self._store.keys())}
         WPRINT("done reranging data", str(self), True) 
-
     
     def scale_data_min_max(self, a=-1, b=1):
         WPRINT("scaling down data labels using min-max (normalization)", str(self), True)
@@ -193,14 +233,12 @@ class DataGenerator:
         self._store = {k: nplabels[i] for i, k in enumerate(self._store.keys())}
         WPRINT("done scaling down data", str(self), True)
 
-
     def scale_data_studentized_residual(self):
         WPRINT("scaling down data labels using studentized residual (normalization)", str(self), True)
         nplabels = np.array(list(self._store.values()))
         nplabels = (nplabels - np.mean(nplabels)) / np.std(nplabels)
         self._store = {k: nplabels[i] for i, k in enumerate(self._store.keys())}
         WPRINT("done scaling down data", str(self), True)
-
 
     def shuffle_data(self):
         WPRINT("shuffling the data", str(self), True)
@@ -209,7 +247,6 @@ class DataGenerator:
         shuffleddict = {k: self._store[k] for k in keys}
         self._store = shuffleddict
         WPRINT("done shuffling data", str(self), True)
-
     
     def downsample_data(self):
         """
@@ -244,13 +281,13 @@ class DataGenerator:
         WPRINT("spawning {} threads".format(self._nthreads), str(self), True)
         procs = []
         for t in range(self._nthreads):
-            thread = threading.Thread(target=self._parse, args=(t, t*self._ngames))
+            thread = threading.Thread(target=self._parse_outcomes, args=(t, t*self._ngames))
             procs.append(thread)
             thread.start()
         for proc in procs:
             proc.join()
         WPRINT("all threads done!", str(self), True)
-        self._store = self._merge_thread_dicts()
+        self._store = self._merge_thread_lists()
 
 
 
@@ -260,7 +297,7 @@ if __name__ == "__main__":
     parser.add_argument('-nt', '--nthreads', action='store', type=int,
                         dest='nthreads', help='set number of threads to use for generation', default=10)
     parser.add_argument('-ng', '--ngames', action='store', type=int,
-                        dest='ngames', help='set the number of games to read for each thread', default=10000)
+                        dest='ngames', help='set the number of games to read for each thread', default=100000)
     parser.add_argument('-r', '--regression', action='store_true',
                         dest='regression', help='set labeling to numerical values')
     parser.add_argument('-c', '--classification', action='store_true',
@@ -273,11 +310,8 @@ if __name__ == "__main__":
         raise ValueError("you can't use both regression and classification labels, use -h for help")
 
     datagen = DataGenerator(args.files[0], nthreads=args.nthreads, ngames=args.ngames, regression=args.regression, classifcation=args.classification)
-    datagen.import_data(fname=["2019-downsampled_FEN-R.npz"])
+    # datagen.t_generate()
+    # datagen.export_data(datagen._store, '2019_FEN-R_fast')
+    datagen.import_data_dict(fname=['2019_FEN-R.npz'])
     datagen.serialize_data()
-    # datagen.shuffle_data()
-    # datagen.rerange_data()
-    # datagen.plot(datagen._store.values(), "after-reranging")
-    # datagen.downsample_data()
-    # datagen.scale_data_studentized_residual()
 
