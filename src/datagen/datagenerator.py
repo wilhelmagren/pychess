@@ -48,6 +48,14 @@ class DataGenerator:
 
     def __str__(self):
         return 'DataGenerator'
+    
+    def _label_to_trinary(self, val):
+        if val < -150:
+            return 0
+        elif -150 <= val < 150:
+            return 1
+        elif 150 <= val:
+            return 2
 
     def _label_to_class(self, val):
         if val < -800:
@@ -151,11 +159,11 @@ class DataGenerator:
         self._store[threadid] = thread_store
 
     def plot(self, data, fname):
-        plt.hist(data, bins=9, color='gray', edgecolor='black', linewidth='1.2')
+        plt.hist(data, bins=3, color='gray', edgecolor='black', linewidth='1.2')
         plt.title('Classification label distribution')
         plt.xlabel('label')
         plt.ylabel('num samples')
-        plt.xlim((-1, 9))
+        plt.xlim((-1, 3))
         plt.savefig(fname+'.png')
     
     def serialize_data(self):
@@ -187,13 +195,13 @@ class DataGenerator:
             bitmap[17, :] = int(board.has_queenside_castling_rights(chess.BLACK))
             bitmap = bitmap.reshape(18, 8, 8)
             X.append(bitmap[None])
-            Y.append(self._label_to_class(label))
+            Y.append(self._label_to_trinary(label))
             WPRINT("parsed position: {}".format(item + 1), str(self), True)
         X = np.concatenate(X, axis=0)
         Y = np.array(Y)
-        WPRINT("done serializing all positions", str(self), True)
-        self.plot(Y, "2019-dist_C-9")
-        self.export_serialized_data(X, Y, "2019-serialized_NP-C-9.npz")
+        WPRINT("done serializing all positions, final size {}".format(X.shape), str(self), True)
+        self.plot(Y, "2019-dist_C-3")
+        self.export_serialized_data(X, Y, "2019-serialized_NP-C-3.npz")
 
     def import_data_npz(self, fname=None):
         WPRINT("import npz data", str(self), True)
@@ -229,6 +237,17 @@ class DataGenerator:
     def export_serialized_data(self, X, Y, fname):
         WPRINT("exporting data to {}".format(fname), str(self), True)
         np.savez_compressed(fname, X, Y)
+
+    def relabel(self):
+        WPRINT("fixing incorrect labels in data", str(self), True)
+        X, Y = list(), list()
+        for x, y in self._store:
+            X.append(x[None])
+            Y.append(y if y != 3 else 2)
+        X = np.concatenate(X, axis=0)
+        Y = np.array(Y)
+        WPRINT("done fixing labels", str(self), True)
+        self.export_serialized_data(X, Y, "2019-serialized_NP-C-3.npz")
 
     def rerange_data(self):
         WPRINT("setting range for data", str(self), True)
