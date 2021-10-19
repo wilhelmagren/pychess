@@ -94,12 +94,14 @@ def WPRINT(msg, tpe, verbose):
 def EPRINT(msg, tpe):
     print("[!]  {}  {}".format(tpe, msg))
 
-def TPRINT(ep, tloss, tacc, vloss, vacc):
-    print("[*]  epoch={}   tloss={:.2f}   tacc={:.2f}%  vloss={:.2f}  vacc={:.2f}%".format(ep, tloss, tacc, vloss, vacc))
+def TPRINT(ep, tloss, tacc, vloss, vacc, problem='C'):
+    if problem == 'C':
+        print("[*]  epoch={:02d}   tloss={:.2f}  tacc={:.2f}%  vloss={:.2f}  vacc={:.2f}%".format(ep, tloss, tacc, vloss, vacc))
+    else:
+        print("[*]  epoch={:02d}   tloss={:.2f}  vloss={:.2f}".format(ep, tloss, vloss))
 
 def num_games_in_PGN(pgnfile):
     with open('../../data/pgn-data/'+pgnfile+'/'+pgnfile) as pgn:
-        
         count = 1
         game = chess.pgn.read_headers(pgn)
         while game is not None:
