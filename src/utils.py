@@ -94,8 +94,8 @@ def WPRINT(msg, tpe, verbose):
 def EPRINT(msg, tpe):
     print("[!]  {}  {}".format(tpe, msg))
 
-def TPRINT(ep, tloss, vloss):
-    print("[*]  epoch={}   tloss={:.4f}   vloss={:.4f}".format(ep, tloss, vloss))
+def TPRINT(ep, tloss, tacc, vloss, vacc):
+    print("[*]  epoch={}   tloss={:.2f}   tacc={:.2f}%  vloss={:.2f}  vacc={:.2f}%".format(ep, tloss, tacc, vloss, vacc))
 
 def num_games_in_PGN(pgnfile):
     with open('../../data/pgn-data/'+pgnfile+'/'+pgnfile) as pgn:

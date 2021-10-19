@@ -11,6 +11,7 @@ import os
 import time
 import chess
 import torch
+import torch.nn as nn
 import numpy as np
 np.random.seed(98)
 
@@ -24,134 +25,70 @@ def calc_class_weights(labels):
     cw = class_weight.compute_class_weight('balanced', classes=np.unique(labels), y=labels)
     print(cw)
 
-def fit(model, train, valid, optimizer, condition, device, epochs=10):
+def fit(model, train, valid, optimizer, condition, device, epochs=30):
     WPRINT("initializing model fit with {}".format(device), str(model), True)
+    model.train()
     for epoch in range(epochs):
-        tloss, vloss = 0, 0
+        tloss, tacc, vloss, vacc = 0, 0, 0, 0
         for batch, (sample, label) in enumerate(train):
             sample, label = sample.to(device).float(), label.to(device).long()
+            optimizer.zero_grad()
             output = model(sample)
             loss = condition(output, label)
-            tloss += loss.item()
             loss.backward()
             optimizer.step()
+            tloss += loss.item()
+            _, pred = torch.max(output.data, 1)
+            tacc += (pred == label).sum().item()/output.shape[0]
         for batch, (sample, label) in enumerate(valid):
             sample, label = sample.to(device).float(), label.to(device).long()
             output = model(sample)
             loss = condition(output, label)
             vloss += loss.item()
-        TPRINT(epoch, tloss/len(train), vloss/len(valid))
+            _, pred = torch.max(output.data, 1)
+            vacc += (pred == label).sum().item()/output.shape[0]
+        TPRINT(epoch, tloss/len(train), tacc/len(train), vloss/len(valid), vacc/len(valid))
 
-"""
-                #  in:  N x 13 x 8 x 8    out:  N x 20 x 8 x 8
-                torch.nn.Conv2d(in_channels=13, out_channels=20, kernel_size=(3, 3), padding=(1, 1)),
-                torch.nn.BatchNorm2d(20),
-                torch.nn.ReLU(),
-                #  in:  N x 20 x 8 x 8    out:  N x 20 x 8 x 8
-                torch.nn.Conv2d(in_channels=20, out_channels=20, kernel_size=(3, 3), padding=(1, 1)),
-                torch.nn.BatchNorm2d(20),
-                torch.nn.ReLU(),
-                #  in:  N x 20 x 8 x 8    out:  N x 30 x 6 x 6
-                torch.nn.Conv2d(in_channels=20, out_channels=30, kernel_size=(3, 3)),
-                torch.nn.BatchNorm2d(30),
-                torch.nn.ReLU(),
-                #  in:  N x 30 x 6 x 6    out:  N x 30 x 6 x 6
-                torch.nn.Conv2d(in_channels=30, out_channels=30, kernel_size=(3, 3), padding=(1, 1)),
-                torch.nn.BatchNorm2d(30),
-                torch.nn.ReLU(),
-                #  in:  N x 30 x 6 x 6    out:  N x 40 x 4 x 4
-                torch.nn.Conv2d(in_channels=30, out_channels=40, kernel_size=(3, 3)),
-                torch.nn.BatchNorm2d(40),
-                torch.nn.ReLU(),
-                #  in:  N x 40 x 4 x 4    out:  N x 40 x 4 x 4
-                torch.nn.Conv2d(in_channels=40, out_channels=40, kernel_size=(3, 3), padding=(1, 1)),
-                torch.nn.BatchNorm2d(40),
-                torch.nn.ReLU(),
-                #  in:  N x 40 x 4 x 4    out:  N x 50 x 2 x 2
-                torch.nn.Conv2d(in_channels=40, out_channels=50, kernel_size=(3, 3)),
-                torch.nn.BatchNorm2d(50),
-                torch.nn.ReLU()
-                """
 
-class ClassifierNet(torch.nn.Module):
+class ChessClassifierCNN(nn.Module):
     def __init__(self, n_classes):
-        super(ClassifierNet, self).__init__()
-        self.n_classes = n_classes
-        self._convolutional_layers = torch.nn.Sequential(
-                torch.nn.Conv2d(in_channels=13, out_channels=40, kernel_size=(5, 5)),
-                torch.nn.BatchNorm2d(40),
-                torch.nn.ReLU(),
-                torch.nn.Conv2d(in_channels=40, out_channels=40, kernel_size=(3, 3)),
-                torch.nn.BatchNorm2d(40),
-                torch.nn.ReLU(),
-                )
-        self._affine_layers = torch.nn.Sequential(
-                torch.nn.Linear(40*2*2, 128),
-                torch.nn.ReLU(),
-                torch.nn.Dropout(p=0.5),
-                torch.nn.Linear(128, 128),
-                torch.nn.ReLU(),
-                torch.nn.Dropout(p=0.5),
-                torch.nn.Linear(128, self.n_classes)
-                )
+        super(ChessClassifierCNN, self).__init__()
+        self._conv1 = nn.Conv2d(17, 16, 3)
+        self._conv2 = nn.Conv2d(16, 32, 3)
+        self._conv3 = nn.Conv2d(32, 64, 3)
+        self._bnorm1 = nn.BatchNorm2d(16)
+        self._bnorm2 = nn.BatchNorm2d(32)
+        self._bnorm3 = nn.BatchNorm2d(64)
+        self._aff1 = nn.Linear(64*2*2, 256)
+        self._aff2 = nn.Linear(256, 128)
+        self._aff3 = nn.Linear(128, n_classes)
+        self._bnorm4 = nn.BatchNorm1d(256)
+        self._bnorm5 = nn.BatchNorm1d(128)
+        self._droput = nn.Dropout(p=0.5)
+    
+    def forward(self, x):
+        x = torch.relu(self._bnorm1(self._conv1(x)))
+        x = torch.relu(self._bnorm2(self._conv2(x)))
+        x = torch.relu(self._bnorm3(self._conv3(x)))
+        x = x.flatten(start_dim=1)
+        x = self._droput(torch.relu(self._bnorm4(self._aff1(x))))
+        x = self._droput(torch.relu(self._bnorm5(self._aff2(x))))
+        x = self._aff3(x)
+        return x 
+
+    def __str__(self):
+        return 'ChessClassifierCNN'
+
+
+class ChessRegressorCNN(nn.Module):
+    def __init__(self):
+        super(ChessRegressorCNN, self).__init__()
 
     def forward(self, x):
-        x = self._convolutional_layers(x)
-        x = x.flatten(start_dim=1)
-        x = self._affine_layers(x) 
         return x
     
     def __str__(self):
-        return 'ClassifierNet'
-
-
-class RegressionNet(torch.nn.Module):
-    def __init__(self):
-        super(RegressionNet, self).__init__() 
-        self._convolutional_layers = torch.nn.Sequential(
-                #  in:  N x 13 x 8 x 8    out:  N x 20 x 8 x 8
-                torch.nn.Conv2d(in_channels=13, out_channels=20, kernel_size=(3, 3), padding=(1, 1)),
-                torch.nn.BatchNorm2d(20),
-                torch.nn.ReLU(),
-                #  in:  N x 20 x 8 x 8    out:  N x 20 x 8 x 8
-                torch.nn.Conv2d(in_channels=20, out_channels=20, kernel_size=(3, 3), padding=(1, 1)),
-                torch.nn.BatchNorm2d(20),
-                torch.nn.ReLU(),
-                #  in:  N x 20 x 8 x 8    out:  N x 30 x 6 x 6
-                torch.nn.Conv2d(in_channels=20, out_channels=30, kernel_size=(3, 3)),
-                torch.nn.BatchNorm2d(30),
-                torch.nn.ReLU(),
-                #  in:  N x 30 x 6 x 6    out:  N x 30 x 6 x 6
-                torch.nn.Conv2d(in_channels=30, out_channels=30, kernel_size=(3, 3), padding=(1, 1)),
-                torch.nn.BatchNorm2d(30),
-                torch.nn.ReLU(),
-                #  in:  N x 30 x 6 x 6    out:  N x 40 x 4 x 4
-                torch.nn.Conv2d(in_channels=30, out_channels=40, kernel_size=(3, 3)),
-                torch.nn.BatchNorm2d(40),
-                torch.nn.ReLU(),
-                #  in:  N x 40 x 4 x 4    out:  N x 40 x 4 x 4
-                torch.nn.Conv2d(in_channels=40, out_channels=40, kernel_size=(3, 3), padding=(1, 1)),
-                torch.nn.BatchNorm2d(40),
-                torch.nn.ReLU(),
-                #  in:  N x 40 x 4 x 4    out:  N x 50 x 2 x 2
-                torch.nn.Conv2d(in_channels=40, out_channels=50, kernel_size=(3, 3)),
-                torch.nn.BatchNorm2d(50),
-                torch.nn.ReLU()
-                )
-        self._affine_layers = torch.nn.Sequential(
-                torch.nn.Linear(50*2*2, 50*2),
-                torch.nn.ReLU(),
-                torch.nn.Linear(50*2, 1)
-                )
-
-    def forward(self, x):
-        x = self._convolutional_layers(x)
-        x = x.flatten(start_dim=1)
-        x = self._affine_layers(x)
-        return x
-
-    def __str__(self):
-        return 'RegressionNet'
+        return "ChessRegressorCNN"
 
 
 class DatasetWrapper(Dataset):
@@ -166,7 +103,7 @@ class DatasetWrapper(Dataset):
 
 
 class DatasetChess:
-    def __init__(self, shuffle=True, batch_size=4096, fname='datagen/2019-serialized_FEN-C.npz'):
+    def __init__(self, shuffle=True, batch_size=4096, fname='datagen/2019-serialized_NP-C.npz'):
         self.shuffle, self.batch_size = shuffle, batch_size
         self.X, self.Y = self._load(fname)
         self.datasets = self._train_valid_test_split()
@@ -179,8 +116,7 @@ class DatasetChess:
         WPRINT("loading data from {}".format(fname), str(self), True)
         data = np.load(fname, allow_pickle=True)
         X, Y = data['arr_0'], data['arr_1']
-        Y[Y > 3] = 1
-        Y[Y < 4] = 0
+        X, Y = X[:20000], Y[:20000]
         WPRINT("loaded {} samples from {}".format(X.shape, fname), str(self), True)
         return X, Y
 
@@ -208,14 +144,11 @@ class DatasetChess:
 
 if __name__ == "__main__":
     dataset = DatasetChess()
-    model, device = ClassifierNet(2), 'cuda' if torch.cuda.is_available() else 'cpu'
-    optimizer = torch.optim.Adam(model.parameters())
-    # c_weights = torch.Tensor([18.61048726, 3.5799615, 0.86170505, 0.45427876, 
-    #                         0.37190948, 0.79824619, 3.24212056, 18.13564839]).to(device).float()
-    condition = torch.nn.CrossEntropyLoss()
-    # condition = torch.nn.HuberLoss()
+    model, device = ChessClassifierCNN(3), 'cuda' if torch.cuda.is_available() else 'cpu'
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
     # condition = torch.nn.MSELoss()
+    condition = torch.nn.CrossEntropyLoss()
     model.to(device)
-    summary(model,(13, 8, 8))
+    summary(model,(17, 8, 8))
     fit(model, dataset.dataloaders['train'], dataset.dataloaders['valid'], optimizer, condition, device)
 
