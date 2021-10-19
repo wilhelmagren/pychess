@@ -1,4 +1,4 @@
 .gitignore
-src/__pychache__/*
-data/pgn-data/
-stockfish/
+__pychache__
+data
+stockfish
