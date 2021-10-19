@@ -1,0 +1,17 @@
+Shallow-ChessClassifierCNN  
+testing results on C-9:
+SUBSET OF FULL DATA:
+	44.1% after training for 50 epochs on 3 million samples total
+	training took 21:51 minutes using GPU
+FULL DATASET:
+	43.8% after training for 50 epochs on 6 million samples total
+	training took 43:51 minutes using GPU
+
+testing results on C-3:
+SUBSET OF FULL DATA:
+	74.0% accuracy, 50 epochs on 3 million samples total
+	training took 20.25 minutes using GPU
+
+ChessClassifierCNN  testing results:
+
+
