@@ -50,12 +50,24 @@ class DataGenerator:
         return 'DataGenerator'
 
     def _label_to_class(self, val):
-        if val < -100:
+        if val < -800:
             return 0
-        elif -100 <= val < 100:
+        elif -800 <= val < -400:
             return 1
-        elif 100 <= val:
+        elif -400 <= val < -150:
             return 2
+        elif -150 <= val < -40:
+            return 3
+        elif -40 <= val < 40:
+            return 4
+        elif 40 <= val < 150:
+            return 5
+        elif 150 <= val < 400:
+            return 6
+        elif 400 <= val < 800:
+            return 7
+        elif 800 <= val:
+            return 8
 
     def _merge_thread_dicts(self):
         WPRINT("merging the thread-created dictionaries", str(self), True)
@@ -139,11 +151,11 @@ class DataGenerator:
         self._store[threadid] = thread_store
 
     def plot(self, data, fname):
-        plt.hist(data, bins=3, color='gray', edgecolor='black', linewidth='1.2')
+        plt.hist(data, bins=9, color='gray', edgecolor='black', linewidth='1.2')
         plt.title('Classification label distribution')
         plt.xlabel('label')
         plt.ylabel('num samples')
-        plt.xlim((-1, 3))
+        plt.xlim((-1, 9))
         plt.savefig(fname+'.png')
     
     def serialize_data(self):
@@ -155,32 +167,33 @@ class DataGenerator:
         """
         WPRINT("serializing the loaded data", str(self), True)
         X, Y, t_start, data = list(), list(), time.time(), self._store
-        p_offset = {'P': 0, 'N': 1, 'B': 2, 'R': 3, 'Q': 4, 'K': 5,
+        p_offset = {'P': 0, 'N': 1, 'B': 2, 'R': 3, 'Q': 4,  'K': 5,
                     'p': 6, 'n': 7, 'b': 8, 'r': 9, 'q': 10, 'k': 11}
         for item, (FEN, label) in enumerate(data.items()):
             if len(FEN.split('/')) < 6:
                 continue
             label = int(label)
-            bitmap = np.zeros((17, 64), dtype=np.int8)  # 6 piece types  +  7 state flags
+            bitmap = np.zeros((18, 64), dtype=np.int8)  # 6 piece types  +  7 state flags
             board = chess.Board(FEN)
             for idx in range(64):
                 p = board.piece_at(idx)
                 if p:
                     bitmap[p_offset[p.symbol()], idx] = 1 
             bitmap[12, :] = int(board.turn)
-            bitmap[13, :] = int(board.has_kingside_castling_rights(chess.WHITE))
-            bitmap[14, :] = int(board.has_kingside_castling_rights(chess.BLACK))
-            bitmap[15, :] = int(board.has_queenside_castling_rights(chess.WHITE))
-            bitmap[16, :] = int(board.has_queenside_castling_rights(chess.BLACK))
-            bitmap = bitmap.reshape(17, 8, 8)
+            bitmap[13, :] = int(board.is_check())
+            bitmap[14, :] = int(board.has_kingside_castling_rights(chess.WHITE))
+            bitmap[15, :] = int(board.has_kingside_castling_rights(chess.BLACK))
+            bitmap[16, :] = int(board.has_queenside_castling_rights(chess.WHITE))
+            bitmap[17, :] = int(board.has_queenside_castling_rights(chess.BLACK))
+            bitmap = bitmap.reshape(18, 8, 8)
             X.append(bitmap[None])
             Y.append(self._label_to_class(label))
             WPRINT("parsed position: {}".format(item + 1), str(self), True)
         X = np.concatenate(X, axis=0)
         Y = np.array(Y)
         WPRINT("done serializing all positions", str(self), True)
-        self.plot(Y, "2019-dist_C")
-        self.export_serialized_data(X, Y, "2019-serialized_NP-C.npz")
+        self.plot(Y, "2019-dist_C-9")
+        self.export_serialized_data(X, Y, "2019-serialized_NP-C-9.npz")
 
     def import_data_npz(self, fname=None):
         WPRINT("import npz data", str(self), True)
@@ -307,11 +320,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     if args.regression == args.classification:
-        raise ValueError("you can't use both regression and classification labels, use -h for help")
+        raise ValueError("you can't use both regression and categorical labels, use -h for help")
 
-    datagen = DataGenerator(args.files[0], nthreads=args.nthreads, ngames=args.ngames, regression=args.regression, classifcation=args.classification)
+    datagen = DataGenerator(args.files[0], nthreads=args.nthreads, ngames=args.ngames, regression=args.regression, categorical=args.classification)
     # datagen.t_generate()
     # datagen.export_data(datagen._store, '2019_FEN-R_fast')
-    datagen.import_data_dict(fname=['2019_FEN-R.npz'])
+    datagen.import_data_dict(fname=['../../data/2019_FEN-R.npz'])
     datagen.serialize_data()
 
