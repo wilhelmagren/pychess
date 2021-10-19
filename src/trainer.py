@@ -50,8 +50,10 @@ class PyTrainer:
     def __str__(self):
         return 'PyTrainer'
 
-    def plot_classification(self, style='seaborn-talk'):
+    def plot_classification(self, data=None, style='seaborn-talk'):
         WPRINT("plotting classification training results", str(self), self._verbose)
+        if data is None:
+            data = self._history
         plt.style.use(style)
         styles = ['-', ':']
         markers = ['.', '.']
@@ -59,8 +61,8 @@ class PyTrainer:
         fig, ax1 = plt.subplots(figsize=(8, 3))
         ax2 = ax1.twinx()
         for y1, y2, style, marker in zip(Y1, Y2, styles, markers):
-            ax1.plot(self._history[y1], ls=style, marker=marker, ms=7, c='tab:blue', label=y1)
-            ax2.plot(self._history[y2], ls=style, marker=marker, ms=7, c='tab:orange', label=y2)
+            ax1.plot(data[y1], ls=style, marker=marker, ms=7, c='tab:blue', label=y1)
+            ax2.plot(data[y2], ls=style, marker=marker, ms=7, c='tab:orange', label=y2)
         ax1.tick_params(axis='y', labelcolor='tab:blue')
         ax1.set_ylabel('Loss', color='tab:blue')
         ax2.tick_params(axis='y', labelcolor='tab:orange')
@@ -70,7 +72,7 @@ class PyTrainer:
         lines1, labels1 = ax1.get_legend_handles_labels()
         lines2, labels2 = ax2.get_legend_handles_labels()
         ax2.legend(lines1+lines2, labels1+labels2)
-        # plt.tight_layout()
+        plt.tight_layout()
         plt.savefig('classification-loss-acc.png')
 
     def test_classification(self):
@@ -115,15 +117,15 @@ class PyTrainer:
                         if self._problem == 'C':
                             _, pred = torch.max(output.data, 1)
                             vacc += (pred == target).sum().item()/output.shape[0]
-            TPRINT(epoch, tloss/len(self._train), 100*tacc/len(self._train), vloss/len(self._valid), 100*vacc/len(self._valid), problem=self._problem)
+            TPRINT(epoch+1, tloss/len(self._train), 100*tacc/len(self._train), vloss/len(self._valid), 100*vacc/len(self._valid), problem=self._problem)
             self._history['tloss'].append(tloss/len(self._train))
             self._history['vloss'].append(vloss/len(self._valid))
             self._history['tacc'].append(100*tacc/len(self._train))
             self._history['vacc'].append(100*vacc/len(self._valid))
         t_min, t_sec = divmod(time.time()-t_start, 60)
         WPRINT("training done! elapsed time: {}:{}".format(int(t_min), int(t_sec)), str(self), self._verbose)
-        fname = '../models/{}.pth'.format(str(self._model))
+        fname = '../models/shallow-{}_C-3.pth'.format(str(self._model))
         WPRINT("saving model state to {}".format(fname), str(self), self._verbose)
-        # torch.save(self._model.state_dict(), fname)
+        torch.save(self._model.state_dict(), fname)
         np.savez_compressed('model-history.npz', self._history)
 
