@@ -32,45 +32,62 @@ class ChessClassifierCNN(nn.Module):
         self._forward = nn.Sequential(
                 nn.Conv2d(18, 32, 5),
                 nn.BatchNorm2d(32),
-                nn.ReLU(),
-                nn.Conv2d(32, 64, 3),
-                nn.BatchNorm2d(64),
-                nn.ReLU(),
+                nn.ELU(),
                 nn.Flatten(start_dim=1),
-                nn.Linear(64*2*2, 128),
+                nn.Linear(512, 128),
                 nn.BatchNorm1d(128),
-                nn.ReLU(),
+                nn.ELU(),
                 nn.Dropout(p=0.5),
                 nn.Linear(128, 128),
                 nn.BatchNorm1d(128),
-                nn.ReLU(),
+                nn.ELU(),
                 nn.Dropout(p=0.5),
                 nn.Linear(128, n_classes),
-                nn.Sigmoid()  # should this be here?
+                nn.ELU()
                 )
+
         self._forward1 = nn.Sequential(
-                nn.Conv2d(18, 32, 3),
+                # N x 32 x 8 x 8
+                nn.Conv2d(18, 16, 3, padding=1),
+                nn.BatchNorm2d(16),
+                nn.ELU(),
+                nn.Conv2d(16, 16, 3, padding=1),
+                nn.BatchNorm2d(16),
+                nn.ELU(),
+                nn.Conv2d(16, 32, 3),
                 nn.BatchNorm2d(32),
-                nn.ReLU(),
+                nn.ELU(),
+                # N x 64 x 6 x 6
+                nn.Conv2d(32, 32, 3, padding=1),
+                nn.BatchNorm2d(32),
+                nn.ELU(),
+                nn.Conv2d(32, 32, 3, padding=1),
+                nn.BatchNorm2d(32),
+                nn.ELU(),
                 nn.Conv2d(32, 64, 3),
                 nn.BatchNorm2d(64),
-                nn.ReLU(),
+                nn.ELU(),
+                # N x 128 x 4 x 4
+                nn.Conv2d(64, 64, 3, padding=1),
+                nn.BatchNorm2d(64),
+                nn.ELU(),
+                nn.Conv2d(64, 64, 3, padding=1),
+                nn.BatchNorm2d(64),
+                nn.ELU(),
                 nn.Conv2d(64, 128, 3),
                 nn.BatchNorm2d(128),
-                nn.ReLU(),
+                nn.ELU(),
+                # N x 128 x 2 x 2
                 nn.Flatten(start_dim=1),
-                nn.Linear(128*2*2, 128),
-                nn.BatchNorm1d(128),
+                nn.Linear(512, 256),
+                nn.BatchNorm1d(256),
                 nn.Dropout(p=0.5),
-                nn.Linear(128, 128),
-                nn.BatchNorm1d(128),
-                nn.Dropout(p=0.5),
-                nn.Linear(128, n_classes),
-                nn.Sigmoid()
+                nn.Linear(256, n_classes),
+                nn.ELU()
                 )
 
     def forward(self, x):
-        x = self._forward1(x)
+        x = self._forward(x)
         return x 
 
     def __str__(self):
@@ -100,7 +117,7 @@ class DatasetWrapper(Dataset):
 
 
 class DatasetChess:
-    def __init__(self, shuffle=True, batch_size=4096, fname='../data/2019-serialized_NP-C-9.npz'):
+    def __init__(self, shuffle=True, batch_size=4096, fname='../data/2019-serialized_NP-C-3.npz'):
         self.shuffle, self.batch_size = shuffle, batch_size
         self.X, self.Y = self._load(fname)
         self.datasets = self._train_valid_test_split()
@@ -112,7 +129,7 @@ class DatasetChess:
     def _load(self, fname):
         WPRINT("loading data from {}".format(fname), str(self), True)
         data = np.load(fname, allow_pickle=True)
-        X, Y = data['arr_0'], data['arr_1']
+        X, Y = data['arr_0'][:3000000], data['arr_1'][:3000000]
         WPRINT("loaded {} samples from {}".format(X.shape, fname), str(self), True)
         return X, Y
 
@@ -139,11 +156,13 @@ class DatasetChess:
 
 
 if __name__ == "__main__":
+    
     dataset = DatasetChess()
-    model, device = ChessClassifierCNN(9), 'cuda' if torch.cuda.is_available() else 'cpu'
+    model, device = ChessClassifierCNN(3), 'cuda' if torch.cuda.is_available() else 'cpu'
+    model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
     condition = torch.nn.CrossEntropyLoss()
-    #summary(model,(18, 8, 8))
+    summary(model,(18, 8, 8))
     trainer = PyTrainer(model, 
                         device, 
                         train=dataset.dataloaders['train'],
@@ -151,9 +170,10 @@ if __name__ == "__main__":
                         test=dataset.dataloaders['test'],
                         optimizer=optimizer,
                         condition=condition,
-                        n_epochs=20,
+                        n_epochs=50,
                         verbose=True)
-    trainer.fit()
-    # trainer.plot_classification()
-    trainer.test_classification()
+    #trainer.fit()
+    #trainer.test_classification()
+    data = np.load('model-history.npz', allow_pickle=True)['arr_0'].item()
+    trainer.plot_classification(data=data)
 
