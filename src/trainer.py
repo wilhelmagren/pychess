@@ -8,7 +8,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
-from utils import WPRINT, EPRINT, TPRINT
+from .utils import WPRINT, EPRINT, TPRINT
 
 
 
@@ -45,10 +45,28 @@ class PyTrainer:
         self._verbose = verbose
         WPRINT("moving model to device", str(self), self._verbose)
         self._model.to(self._device)
-        self._history = {'tloss': [], 'vloss': [], 'tacc': [], 'vacc': [], 'testingloss': [], 'testingacc': []}
+        self._history = {'tloss': [], 'vloss': [], 'tacc': [], 'vacc': []}
     
     def __str__(self):
         return 'PyTrainer'
+
+    def plot_regression(self, data=None, style='seaborn-talk'):
+        WPRINT("plotting regression training results", str(self), self._verbose)
+        if data is None:
+            data = self._history
+        plt.style.use(style)
+        styles = ['-', ':']
+        markers = ['.', '.']
+        Y = ['tloss', 'vloss']
+        fig, ax = plt.subplots(figsize=(8, 3))
+        for y, style, marker in zip(Y, styles, markers):
+            ax.plot(data[y], ls=style, marker=marker, ms=7, c='tab:blue', label=y)
+        ax.set_ylabel('Loss', color='tab:blue')
+        ax.set_xlabel('Epoch')
+        lines, labels = ax.get_legend_handles_labels()
+        ax.legend(lines, labels)
+        plt.tight_layout()
+        plt.savefig('regression-loss.png')
 
     def plot_classification(self, data=None, style='seaborn-talk'):
         WPRINT("plotting classification training results", str(self), self._verbose)
@@ -75,6 +93,20 @@ class PyTrainer:
         plt.tight_layout()
         plt.savefig('classification-loss-acc.png')
 
+    def test_regression(self):
+        WPRINT("testing model {} on device {}".format(str(self._model), self._device), str(self), self._verbose)
+        if self._test is None:
+            raise ValueError('no test dataloader provided, can\'t evaluate model')
+
+        with torch.no_grad():
+            tloss = 0
+            for batch, (sample, target) in enumerate(self._test):
+                sample, target = sample.to(self._device).float(), torch.unsqueeze(target.to(self._device).float(), 1)
+                output = self._model(sample)
+                loss = self._condition(output, target)
+                tloss += loss.item()
+            WPRINT("testing done! final result: {} MSE".format(tloss/len(self._test)), str(self), self._verbose)
+
     def test_classification(self):
         WPRINT("testing model {} on device {}".format(str(self._model), self._device), str(self), self._verbose)
         if self._test is None:
@@ -82,12 +114,11 @@ class PyTrainer:
 
         with torch.no_grad():
             tacc = 0
-            for batch, (sample, target) in enumerate(self._train):
-                sample, target = sample.to(self._device).float(), target.to(self._device).long() if self._problem == 'C' else target.to(self._device).float()
+            for batch, (sample, target) in enumerate(self._test):
+                sample, target = sample.to(self._device).float(), target.to(self._device).long()
                 output = self._model(sample)
                 _, pred = torch.max(output.data, 1)
                 tacc += (pred == target).sum().item()/output.shape[0]
-                self._history['testingacc'].append(tacc/len(self._train))
             WPRINT("testing done! final result: {:.1f}%".format(100*tacc/len(self._train)), str(self), self._verbose)
 
     def fit(self):
@@ -97,9 +128,9 @@ class PyTrainer:
         for epoch in range(self._epochs):
             tloss, tacc, vloss, vacc = 0, 0, 0, 0
             for batch, (sample, target) in enumerate(self._train):
-                sample, target = sample.to(self._device).float(), target.to(self._device).long() if self._problem == 'C' else target.to(self._device).float()
+                sample, target = sample.to(self._device).float(), target.to(self._device).long() if self._problem == 'C' else torch.unsqueeze(target.to(self._device).float(), 1)
                 self._optimizer.zero_grad()
-                output = self._model(sample)
+                output = self._model(sample) 
                 loss = self._condition(output, target)
                 loss.backward()
                 self._optimizer.step()
@@ -110,7 +141,7 @@ class PyTrainer:
             if self._valid is not None:
                 with torch.no_grad():
                     for batch, (sample, target) in enumerate(self._valid):
-                        sample, target = sample.to(self._device).float(), target.to(self._device).long() if self._problem == 'C' else target.to(self._device).float()
+                        sample, target = sample.to(self._device).float(), target.to(self._device).long() if self._problem == 'C' else torch.unsqueeze(target.to(self._device).float(), 1)
                         output = self._model(sample)
                         loss = self._condition(output, target)
                         vloss += loss.item()
@@ -124,7 +155,7 @@ class PyTrainer:
             self._history['vacc'].append(100*vacc/len(self._valid))
         t_min, t_sec = divmod(time.time()-t_start, 60)
         WPRINT("training done! elapsed time: {}:{}".format(int(t_min), int(t_sec)), str(self), self._verbose)
-        fname = '../models/shallow-{}_C-3.pth'.format(str(self._model))
+        fname = '../models/{}_R.pth'.format(str(self._model))
         WPRINT("saving model state to {}".format(fname), str(self), self._verbose)
         torch.save(self._model.state_dict(), fname)
         np.savez_compressed('model-history.npz', self._history)
