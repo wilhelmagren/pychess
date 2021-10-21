@@ -1,0 +1,40 @@
+#!!! Shallow-ChessClassifierCNN  
+testing results on C-9:
+SUBSET OF FULL DATA:
+	44.1% after training for 50 epochs on 3 million samples total
+	training took 21:51 minutes using GPU
+FULL DATASET:
+	43.8% after training for 50 epochs on 6 million samples total
+	training took 43:51 minutes using GPU
+
+testing results on C-3:
+SUBSET OF FULL DATA:
+	74.0% accuracy, 50 epochs on 3 million samples total
+	training took 20.25 minutes using GPU
+FULL DATASET:
+	73.5% accuracy, 50 epochs on 6 million samples total
+	training took 44:59 minute using GPU
+
+
+
+#!!! ChessClassifierCNN  testing results:
+testing results on C-9:
+
+
+testing results on C-3:
+FULL DATASET:
+	78.1% accuracy, 50 epochs on 6 million samples total
+	training took 159 minutes using GPU
+
+
+
+#!!! Shallow-ChessRegressorCNN
+testing results SUBSET:
+	0.05 MSE ?????
+
+testing results FULL SUBSET:
+	0.0199 MSE, training took 45minutes on GPU with 6 million samples
+
+!### ChessRegressorCNN
+testing results FULL SUBSET:
+	0.017 MSE, training took 154 minutes on GPU with 6 million samples
