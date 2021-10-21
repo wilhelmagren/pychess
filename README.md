@@ -39,4 +39,4 @@ Static evalution of chess positions to play with limited look ahead, i.e. only s
 
 ### Contact and license
 Author: Wilhelm Ågren, wagren@kht.se
-License: 
+<br>License: MIT
