@@ -248,15 +248,20 @@ class PychessGame:
         for _push_move and thus returns the save bool value. true if 
         pushing the move was legal/successfull or false if not.
         """
+        if type(move) == chess.Move:
+            self._wprint("making move {}".format(move.uci()))
+            return self._push_move(move)
+
         if len(move) != 4:
             self._eprint("got faulty move input from user")
             return False
+        
         for char in move:
             if char in "ABCDEFGHIJKLMNOPQRSTUVWXYZÅÄÖijklmnopqrstuvwxyzåäö90/,;.:-_'*¨^~`´\\?+=})]([/{&%€¤$#£\"@!§½":
                 self._eprint("got faulty move input from user")
                 return False
-        if type(move) != chess.Move:
-            move = chess.Move.from_uci(move)
+        
+        move = chess.Move.from_uci(move)
         self._wprint("making move {}".format(move.uci()))
         return self._push_move(move)
 
