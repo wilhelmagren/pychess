@@ -21,6 +21,7 @@ class PychessAgent:
         self.model = ChessRegressorCNN() if model is None else model
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self._verbose = verbose
+        self._best_move = None
 
         WPRINT("loading model weights for {} and moving to device {}".format(str(self.model), self.device), str(self), self._verbose)
         self.model.to(self.device)
@@ -33,26 +34,49 @@ class PychessAgent:
     def __call__(self, state):
         WPRINT("looking up best move", str(self), self._verbose)
         best_val = float('-inf') if self.color else float('inf')
-        best_move = None
+        self._best_move = None
         for move in state.legal_moves:
             state.push(move)
-            serialized = self._serialize_state(state)
-            value = self.eval(serialized)
-            print(value, move)
+            value = self._minimax(CHESS_WHITE, state, depth=2)
             if self.color:
                 if value >= best_val:
-                    best_move = move
+                    self._best_move = move
                     best_val = value
             else:
                 if value <= best_val:
-                    best_move = move
+                    self._best_move = move
                     best_val = value
             state.pop()
-        if best_move is None:
+        if self._best_move is None:
             raise ValueError('no better move found, verify forward pass in neural net!')
         
-        WPRINT("found best move {}".format(best_move.uci()), str(self), self._verbose)
-        return best_move
+        WPRINT("found best move {}".format(self._best_move.uci()), str(self), self._verbose)
+        return self._best_move
+
+    def _minimax(self, player, state, alpha=float('-inf'), beta=float('inf'), depth=0):
+        if depth == 0:
+            return self.eval(state)
+        moves = state.legal_moves
+        if player:
+            v = float('-inf')
+            for move in moves:
+                state.push(move)
+                v = max(v, self._minimax(CHESS_BLACK, state, alpha, beta, depth-1))
+                state.pop()
+                alpha = max(v, alpha)
+                if beta <= alpha:
+                    break
+            return v
+        else:
+            v = float('inf')
+            for move in moves:
+                state.push(move)
+                v = min(v, self._minimax(CHESS_WHITE, state, alpha, beta, depth-1))
+                state.pop()
+                beta = min(v, beta)
+                if beta <= alpha :
+                    break
+            return v
 
     def _serialize_state(self, state):
         bitmap = np.zeros((18, 64), dtype=np.uint8)
@@ -69,7 +93,8 @@ class PychessAgent:
         bitmap = bitmap.reshape(18, 8, 8)
         return bitmap[None]
     
-    def eval(self, bitmap):
+    def eval(self, state):
+        bitmap = self._serialize_state(state)
         self.model.eval()
         tensor = torch.Tensor(bitmap)
         value = self.model(tensor)
