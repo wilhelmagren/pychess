@@ -12,6 +12,7 @@ import curses
 from .mode      import PychessMode
 from .game      import PychessGame
 from .utils     import *
+from .agent     import PychessAgent
 
 
 
@@ -56,6 +57,7 @@ class PychessTUI(PychessMode):
         self._screendic = dict()
         self._stdout    = StdOutWrapper()
         self._kwargs    = kwargs
+        self._agent     = PychessAgent(verbose=self._verbose)
 
 
     def _initscreen(self):
@@ -169,6 +171,12 @@ class PychessTUI(PychessMode):
         self._screen.refresh()
         curses.napms(3000)
 
+    def _find_and_push_agent_move(self):
+        state = self._game.get_state()
+        move  = self._agent(state)
+        valid = self._game.make_move(move)
+        if not valid:
+            raise ValueError('agent pushed invalid move')
 
     def _get_and_push_move(self):
         """ private func
@@ -259,6 +267,8 @@ class PychessTUI(PychessMode):
             while not self._game.is_terminal():
                 self._blit()
                 self._get_and_push_move()
+                self._blit()
+                self._find_and_push_agent_move()
             self._query_new_game()
             self._stdout.WPUT("removing instance of self, exiting", str(self), self._verbose)
             curses.endwin()
