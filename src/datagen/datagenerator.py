@@ -26,7 +26,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.
 from utils import WPRINT, EPRINT, num_games_in_PGN
 
 FILEPATHS = os.listdir('../../data/pgn-data/')
-EXTREME_VALUES = [-6000.0, 6000.0]
+EXTREME_VALUES = [-5000.0, 5000.0]
 ALLOW = 100000
 EXALLOW = 20000
 NTHRESH = -50
@@ -159,11 +159,11 @@ class DataGenerator:
         self._store[threadid] = thread_store
 
     def plot(self, data, fname):
-        plt.hist(data, bins=3, color='gray', edgecolor='black', linewidth='1.2')
-        plt.title('Classification label distribution')
-        plt.xlabel('label')
+        plt.hist(data, bins=10000, color='gray', edgecolor='black', linewidth='1.2')
+        plt.title('Regression target distribution')
+        plt.xlabel('targets')
         plt.ylabel('num samples')
-        plt.xlim((-1, 3))
+        plt.xlim((-2, 2))
         plt.savefig(fname+'.png')
     
     def serialize_data(self):
@@ -180,7 +180,7 @@ class DataGenerator:
         for item, (FEN, label) in enumerate(data.items()):
             if len(FEN.split('/')) < 6:
                 continue
-            label = int(label)
+            # label = int(label)
             bitmap = np.zeros((18, 64), dtype=np.int8)  # 6 piece types  +  7 state flags
             board = chess.Board(FEN)
             for idx in range(64):
@@ -195,16 +195,16 @@ class DataGenerator:
             bitmap[17, :] = int(board.has_queenside_castling_rights(chess.BLACK))
             bitmap = bitmap.reshape(18, 8, 8)
             X.append(bitmap[None])
-            Y.append(self._label_to_trinary(label))
+            Y.append(label)
             WPRINT("parsed position: {}".format(item + 1), str(self), True)
         X = np.concatenate(X, axis=0)
         Y = np.array(Y)
         WPRINT("done serializing all positions, final size {}".format(X.shape), str(self), True)
-        self.plot(Y, "2019-dist_C-3")
-        self.export_serialized_data(X, Y, "2019-serialized_NP-C-3.npz")
+        self.plot(Y, "2019-dist-scaled_R_serialized")
+        self.export_serialized_data(X, Y, "2019-serialized_NP-R.npz")
 
     def import_data_npz(self, fname=None):
-        WPRINT("import npz data", str(self), True)
+        WPRINT("importing npz data", str(self), True)
         data = np.load(fname, allow_pickle=True)
         X, Y = data['arr_0'], data['arr_1']
         self._store = list((x, y) for x, y in zip(X, Y))
@@ -227,7 +227,7 @@ class DataGenerator:
         dicts = list(map(lambda f: np.load(f, allow_pickle=True)['arr_0'], files))
         for dic in dicts:
             completedict = {**completedict, **dic[()]}
-        WPRINT("done importing", str(self), True)
+        WPRINT("done importing {} samples".format(len(completedict.keys())), str(self), True)
         self._store = completedict
 
     def export_data(self, X, fname):
@@ -257,7 +257,7 @@ class DataGenerator:
         self._store = {k: nplabels[i] for i, k in enumerate(self._store.keys())}
         WPRINT("done reranging data", str(self), True) 
     
-    def scale_data_min_max(self, a=-1, b=1):
+    def scale_data_minmax(self, a=-1, b=1):
         WPRINT("scaling down data labels using min-max (normalization)", str(self), True)
         nplabels = np.array(list(self._store.values()), dtype=np.float16)
         FEATURE_MAX, FEATURE_MIN = nplabels.max(), nplabels.min()
@@ -344,6 +344,7 @@ if __name__ == "__main__":
     datagen = DataGenerator(args.files[0], nthreads=args.nthreads, ngames=args.ngames, regression=args.regression, categorical=args.classification)
     # datagen.t_generate()
     # datagen.export_data(datagen._store, '2019_FEN-R_fast')
-    datagen.import_data_dict(fname=['../../data/2019_FEN-R.npz'])
+    datagen.import_data_dict(fname=['../../data/2019-scaled_FEN-R.npz'])
+    #datagen.plot(datagen._store.values(), 'scaled-dist-please')
     datagen.serialize_data()
 
