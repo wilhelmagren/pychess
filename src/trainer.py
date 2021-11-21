@@ -155,7 +155,7 @@ class PyTrainer:
             self._history['vacc'].append(100*vacc/len(self._valid))
         t_min, t_sec = divmod(time.time()-t_start, 60)
         WPRINT("training done! elapsed time: {}:{}".format(int(t_min), int(t_sec)), str(self), self._verbose)
-        fname = '../models/{}_R.pth'.format(str(self._model))
+        fname = '../models/{}_subset_R.pth'.format(str(self._model))
         WPRINT("saving model state to {}".format(fname), str(self), self._verbose)
         torch.save(self._model.state_dict(), fname)
         np.savez_compressed('model-history.npz', self._history)

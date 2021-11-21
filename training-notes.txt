@@ -19,6 +19,10 @@ FULL DATASET:
 
 #!!! ChessClassifierCNN  testing results:
 testing results on C-9:
+SUBSET:
+	16.6%!?!?!?! training for 25 epochs on 4 million samples total
+
+	
 
 
 testing results on C-3:

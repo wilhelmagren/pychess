@@ -1,9 +1,4 @@
 """
-
-class weights for 2019-serialized_FEN-C.npz  are:
-    [18.61048726, 3.5799615, 0.86170505, 0.45427876,
-      0.37190948, 0.79824619, 3.24212056, 18.13564839]
-
 Author: Wilhelm Ågren, wagren@kth.se
 Last edited: 17-10-2021
 """
@@ -203,9 +198,10 @@ class DatasetChess:
 
     def _train_valid_test_split(self, p=0.6):
         WPRINT("splitting data into train/valid/test", str(self), True)
-        indices, n_samples = np.arange(self.X.shape[0]), int(self.X.shape[0]*p)
+        indices, n_samples = np.arange(self.X.shape[0]), int(4000000*p)
         np.random.shuffle(indices)
         X, Y = self.X[indices], self.Y[indices]
+        X, Y = X[:4000000], Y[:4000000]
         X_train, X_valid = X[:n_samples], X[n_samples:]
         Y_train, Y_valid = Y[:n_samples], Y[n_samples:]
         indices, n_samples = np.arange(X_valid.shape[0]), int(X_valid.shape[0]*0.5)
@@ -228,6 +224,7 @@ if __name__ == "__main__":
     dataset = DatasetChess()
     model, device = ChessRegressorCNN(), 'cuda' if torch.cuda.is_available() else 'cpu'
     model.to(device)
+    #model.load_state_dict(torch.load('../models/ChessClassifierCNN_subset_C-9.pth'))
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
     #condition = nn.CrossEntropyLoss()
     condition = nn.MSELoss()
@@ -241,10 +238,11 @@ if __name__ == "__main__":
                         test=dataset.dataloaders['test'],
                         optimizer=optimizer,
                         condition=condition,
-                        n_epochs=50,
+                        n_epochs=40,
                         verbose=True)
-    #trainer.fit()
-    #trainer.test_regression()
-    data = np.load('model-history.npz', allow_pickle=True)['arr_0'].item()
-    trainer.plot_regression(data=data)
+    trainer.fit()
+    #trainer.test_classification()
+    trainer.test_regression()
+    #data = np.load('model-history.npz', allow_pickle=True)['arr_0'].item()
+    #trainer.plot_classification(data=data)
 

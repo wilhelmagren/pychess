@@ -1,0 +1,6 @@
+chess==1.7.0
+matplotlib==3.4.3
+numpy==1.21.2
+birch==0.0.34
+pygame==2.0.2
+state==0.1.2dev-r2

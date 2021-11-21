@@ -57,7 +57,7 @@ class PychessTUI(PychessMode):
         self._screendic = dict()
         self._stdout    = StdOutWrapper()
         self._kwargs    = kwargs
-        self._agent     = PychessAgent(verbose=self._verbose)
+        self._agent     = PychessAgent(color=CHESS_BLACK, verbose=self._verbose)
 
 
     def _initscreen(self):
